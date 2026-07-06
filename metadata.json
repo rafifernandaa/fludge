@@ -1,0 +1,6 @@
+{
+  "name": "Jakarta Flash-Flood Evacuation Priority Ranking Engine",
+  "description": "Deterministic real-time spatial hazard modeling and evacuation risk ranking for BPBD DKI Jakarta.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
