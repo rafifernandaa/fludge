@@ -158,22 +158,6 @@ gcloud run deploy fludge-jakarta \
 
 ---
 
-## 📋 Hackathon Presentation Slide Outline (APAC Gen AI Academy)
-
-The presentation slide outline mapped directly from our prototype flow:
-* **Slide 1: Participant Details** — Participant Name & Jakarta Flood Inaction Problem Statement.
-* **Slide 2: Brief about the Idea** — FLUDGE: NVIDIA RAPIDS + Gemini AI Real-time Disaster Command HUD.
-* **Slide 3: Working Solution** — Translating topographic elevation (DEMNAS) and BMKG rainfall models into action-oriented evacuation plans.
-* **Slide 4: Opportunities & USP** — Eliminating the 22.4-second CPU calculation bottleneck into a sub-5ms GPU execution, delivering instant response capabilities.
-* **Slide 5: List of Features** — Vector GIS Map, Dijkstra router, EVT Exceedance charts, GCS simulator, RAPIDS Benchmarker, and Gemini Dispatch Advisor.
-* **Slide 6: Process Flow Diagram** — Architectural pipeline spanning GCP Landing bucket & BigQuery store to RAPIDS GPU and Gemini API.
-* **Slide 7: Wireframes/Mocks** — Visualizing the Command HUD HUD interface layout.
-* **Slide 8: Architecture Diagram** — Technical data transmission map from physical telemetry to command operators.
-* **Slide 9: Technologies Used** — Choosing modern tools (NVIDIA L4, cuDF, Gemini-3.5-flash, React) to achieve low-latency scalability.
-* **Slide 10: Snapshots of Prototype** — Real-world interactive system captures.
-
----
-
 ## 📄 License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
