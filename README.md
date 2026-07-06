@@ -31,19 +31,38 @@ Jakarta's complex urban terrain consists of over **30,000 Neighborhood Sectors (
 
 ## 🛠️ Architecture & Data Flow
 
-```
-   [ Sensors & BMKG Radar ] ──(Raw Streaming Telemetry)──> [ Google Cloud Storage (GCS) ]
-                                                                      │
-                                                        [ BigQuery Spatial Feature Store ]
-                                                                      │
-                                                        [ NVIDIA RAPIDS (cuDF on L4 GPU) ]
-                                                        (PiP & Rainfall IDW in <4.5ms)
-                                                                      │
-                                                        [ Express Server-Side Proxy / API ]
-                                                                  /        \
-                                                   (Advisory Context)    (HUD Render)
-                                                                /            \
-                                              [ Gemini-3.5-Flash ]          [ React / Canvas HUD ]
+```mermaid
+graph TD
+    subgraph Ingestion [1. Ingestion Layer]
+        Sensors[Live River Sensors] -->|Raw Hydrometeorological Streams| GCS[(Google Cloud Storage - GCS)]
+        BMKG[BMKG Radar & Weather Feeds] -->|High-velocity Rainfall Data| GCS
+    end
+
+    subgraph Storage [2. Storage & Warehousing Layer]
+        GCS -->|Automated Load Pipeline| BQ[(BigQuery Spatial Feature Store)]
+        DEMNAS[(DEMNAS Elevation Models)] --> BQ
+        RTs[(Jakarta RT Boundaries GeoJSON)] --> BQ
+    end
+
+    subgraph Compute [3. Parallelized GPU Compute Layer]
+        BQ -->|Spatial Queries & Join Vectors| RAPIDS[NVIDIA RAPIDS - cuDF on L4 GPU]
+        RAPIDS -->|Parallel Point-in-Polygon & Rainfall IDW| API[Express API Proxy / Server]
+    end
+
+    subgraph Intelligence [4. Tactical Reasoning Layer]
+        API -->|Accelerated Risk Matrix & Context| Gemini[Gemini 3.5 Flash LLM]
+        Gemini -->|Actionable Dispatch Bulletins| API
+    end
+
+    subgraph Command [5. Visualization & Control HUD]
+        API -->|JSON Telemetry / Live GIS Datastream| HUD[React Custom Vector Canvas HUD]
+        HUD -->|Dynamic Dijkstra Evacuation Routing| Ops[Disaster Response Coordinators]
+    end
+
+    style RAPIDS fill:#76b900,stroke:#5c9000,stroke-width:2px,color:#fff
+    style Gemini fill:#4285f4,stroke:#3367d6,stroke-width:2px,color:#fff
+    style HUD fill:#06b6d4,stroke:#0891b2,stroke-width:2px,color:#fff
+    style BQ fill:#ff6d00,stroke:#e65100,stroke-width:2px,color:#fff
 ```
 
 1. **Ingest**: Raw river telemetry levels and BMKG radar readings land as high-velocity files in a Google Cloud Storage bucket.
@@ -104,6 +123,38 @@ The server will boot up and bind to `http://localhost:3000`. Open the browser to
 npm run build
 npm start
 ```
+
+### ☁️ 6. Deploying to Google Cloud Run
+
+To host this disaster command HUD on Google Cloud Run with custom server logic and production-grade environment secrets, follow these steps:
+
+#### Step A: Authenticate with Google Cloud
+Ensure you have the Google Cloud SDK (`gcloud`) installed and initialized:
+```bash
+gcloud auth login
+gcloud config set project YOUR_PROJECT_ID
+```
+
+#### Step B: Build the Image using Cloud Build
+This builds your container based on the provided `Dockerfile` and registers it in Google Artifact Registry (or Container Registry):
+```bash
+gcloud builds submit --tag gcr.io/YOUR_PROJECT_ID/fludge-jakarta
+```
+
+#### Step C: Deploy to Cloud Run
+Deploy the compiled container directly to a fully-managed serverless Cloud Run instance:
+```bash
+gcloud run deploy fludge-jakarta \
+  --image gcr.io/YOUR_PROJECT_ID/fludge-jakarta \
+  --platform managed \
+  --region asia-southeast1 \
+  --allow-unauthenticated \
+  --port 3000 \
+  --set-env-vars="NODE_ENV=production" \
+  --set-secrets="GEMINI_API_KEY=GEMINI_API_KEY:latest"
+```
+
+> 💡 **Security Best Practice**: In production, do not expose API keys as plain environment variables. Use **Google Cloud Secret Manager** to securely register your `GEMINI_API_KEY` and mount it directly into Cloud Run as shown in the command above!
 
 ---
 
