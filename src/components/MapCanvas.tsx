@@ -1,9 +1,32 @@
-import React, { useRef, useEffect, useState } from 'react';
-import { NeighborhoodRT, RiverSensor, WeatherStation, CatchmentPolygon, EvacuationRoute, MusterPoint } from '../types';
-import { JAKARTA_LAT_MIN, JAKARTA_LAT_MAX, JAKARTA_LON_MIN, JAKARTA_LON_MAX } from '../data';
-import { MUSTER_POINTS } from '../routing_data';
+import React, { useRef, useEffect, useState, useMemo } from "react";
+import * as d3 from "d3";
+import {
+  Plus,
+  Minus,
+  RotateCcw,
+  Video,
+  Truck,
+  Ship,
+  Package,
+  Layers,
+  Compass,
+  Radio,
+  MapPin,
+  AlertTriangle,
+} from "lucide-react";
+import {
+  NeighborhoodRT,
+  RiverSensor,
+  WeatherStation,
+  CatchmentPolygon,
+  EvacuationRoute,
+  MusterPoint,
+  LogisticsAsset,
+} from "../types";
+import { MUSTER_POINTS } from "../routing_data";
 
 interface MapCanvasProps {
+  isDarkMode?: boolean;
   rts: NeighborhoodRT[];
   sensors: RiverSensor[];
   stations: WeatherStation[];
@@ -13,7 +36,52 @@ interface MapCanvasProps {
   selectedRt: NeighborhoodRT | null;
   onSelectRt: (rt: NeighborhoodRT | null) => void;
   activeRoute: EvacuationRoute | null;
+  onCctvClick?: (sensorId: string) => void;
 }
+
+// Major Jakarta River Flow Networks (South to North)
+const MAJOR_RIVERS = [
+  {
+    name: "Sungai Ciliwung",
+    coords: [
+      [-6.40, 106.85],   // Katulampa
+      [-6.37, 106.83],   // Depok
+      [-6.292, 106.878], // Cipinang Hulu
+      [-6.26, 106.86],   // Rawajati/Pejaten
+      [-6.22, 106.85],   // Bidara Cina
+      [-6.2088, 106.8456], // Manggarai
+      [-6.168, 106.831], // Istiqlal
+      [-6.118, 106.852], // Ancol Marina
+    ],
+  },
+  {
+    name: "Sungai Pesanggrahan",
+    coords: [
+      [-6.315, 106.762], // Pos Pesanggrahan
+      [-6.25, 106.76],
+      [-6.19, 106.77],   // Kebon Jeruk
+      [-6.12, 106.74],   // Cengkareng Drain
+    ],
+  },
+  {
+    name: "Sungai Sunter",
+    coords: [
+      [-6.28, 106.91],   // Sunter Hulu
+      [-6.22, 106.89],
+      [-6.16, 106.88],   // Sunter Agung
+      [-6.11, 106.89],   // Yos Sudarso outlet
+    ],
+  },
+  {
+    name: "Sungai Angke",
+    coords: [
+      [-6.31, 106.715],  // Angke Hulu
+      [-6.22, 106.71],
+      [-6.16, 106.72],   // Daan Mogot
+      [-6.11, 106.77],   // Muara Angke
+    ],
+  },
+];
 
 export const MapCanvas: React.FC<MapCanvasProps> = ({
   rts,
@@ -25,552 +93,569 @@ export const MapCanvas: React.FC<MapCanvasProps> = ({
   selectedRt,
   onSelectRt,
   activeRoute,
+  onCctvClick,
+  isDarkMode = true,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const [dimensions, setDimensions] = useState({ width: 600, height: 480 });
+  const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
   const [hoveredSensor, setHoveredSensor] = useState<RiverSensor | null>(null);
   const [hoveredStation, setHoveredStation] = useState<WeatherStation | null>(null);
   const [hoveredMusterPoint, setHoveredMusterPoint] = useState<MusterPoint | null>(null);
+  const [hoveredRt, setHoveredRt] = useState<NeighborhoodRT | null>(null);
+  const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null);
+
+  const [transform, setTransform] = useState<d3.ZoomTransform>(d3.zoomIdentity);
+  const [activeLayer, setActiveLayer] = useState<"depth" | "evacuation" | "density">("depth");
+  const [showCctvLayer, setShowCctvLayer] = useState<boolean>(true);
+  const [showLogisticsLayer, setShowLogisticsLayer] = useState<boolean>(true);
+
+  const logisticsAssets = useMemo<LogisticsAsset[]>(() => {
+    const assets: LogisticsAsset[] = [];
+    const count = 30;
+    for (let i = 0; i < count; i++) {
+      const typeRand = (i * 17) % 100 / 100;
+      const type =
+        typeRand < 0.4
+          ? "rescue_boat"
+          : typeRand < 0.7
+            ? "evac_truck"
+            : "medical_cache";
+      const lat = -6.37 + ((i * 13) % 29) / 100;
+      const lon = 106.70 + ((i * 19) % 28) / 100;
+      assets.push({
+        id: `asset-${i}`,
+        type,
+        lat,
+        lon,
+        status: i % 3 === 0 ? "en_route" : "available",
+      });
+    }
+    return assets;
+  }, []);
+
+  const zoomRef = useRef<d3.ZoomBehavior<HTMLCanvasElement, unknown> | null>(null);
+  const d3CanvasRef = useRef<d3.Selection<
+    HTMLCanvasElement,
+    unknown,
+    null,
+    undefined
+  > | null>(null);
 
   // Resize handler for canvas
   useEffect(() => {
     if (!containerRef.current) return;
-    
+
     const resizeObserver = new ResizeObserver((entries) => {
       for (let entry of entries) {
         const { width, height } = entry.contentRect;
-        setDimensions({
-          width: Math.max(300, width),
-          height: Math.max(300, height || 480),
-        });
+        if (width > 0 && height > 0) {
+          setDimensions({
+            width: Math.round(width),
+            height: Math.round(height),
+          });
+        }
       }
     });
-    
+
     resizeObserver.observe(containerRef.current);
     return () => resizeObserver.disconnect();
   }, []);
 
-  // Map latitude/longitude to canvas XY
-  const getXY = (lat: number, lon: number) => {
-    // Linear scale inside Jakarta boundaries
-    const padding = 35;
-    const scaleX = (dimensions.width - 2 * padding) / (JAKARTA_LON_MAX - JAKARTA_LON_MIN);
-    const scaleY = (dimensions.height - 2 * padding) / (JAKARTA_LAT_MAX - JAKARTA_LAT_MIN);
-    
-    const x = padding + (lon - JAKARTA_LON_MIN) * scaleX;
-    // Invert Y because canvas coordinates have (0,0) at the top-left
-    const y = dimensions.height - padding - (lat - JAKARTA_LAT_MIN) * scaleY;
-    
-    return [x, y];
+  // Create D3 projection fitting all Jakarta bounds nicely
+  const projection = useMemo(() => {
+    const padding = 20;
+    return d3.geoMercator().fitExtent(
+      [
+        [padding, padding],
+        [dimensions.width - padding, dimensions.height - padding],
+      ],
+      {
+        type: "FeatureCollection",
+        features: [
+          {
+            type: "Feature",
+            geometry: {
+              type: "Point",
+              coordinates: [106.65, -6.42], // South-West bound (Depok/Katulampa)
+            },
+            properties: {},
+          },
+          {
+            type: "Feature",
+            geometry: {
+              type: "Point",
+              coordinates: [107.03, -6.06], // North-East bound (Ancol/Tanjung Priok)
+            },
+            properties: {},
+          },
+        ],
+      } as any
+    );
+  }, [dimensions]);
+
+  const getXY = (lat: number, lon: number): [number, number] => {
+    const proj = projection([lon, lat]);
+    if (!proj) return [0, 0];
+    return [proj[0], proj[1]];
   };
 
-  // Convert canvas XY back to lat/lon for clicking
-  const getLatLon = (x: number, y: number) => {
-    const padding = 35;
-    const scaleX = (dimensions.width - 2 * padding) / (JAKARTA_LON_MAX - JAKARTA_LON_MIN);
-    const scaleY = (dimensions.height - 2 * padding) / (JAKARTA_LAT_MAX - JAKARTA_LAT_MIN);
-    
-    const lon = JAKARTA_LON_MIN + (x - padding) / scaleX;
-    const lat = JAKARTA_LAT_MIN + (dimensions.height - padding - y) / scaleY;
-    
-    return { lat, lon };
+  const handleZoomIn = () => {
+    if (d3CanvasRef.current && zoomRef.current) {
+      d3CanvasRef.current.transition().duration(300).call(zoomRef.current.scaleBy as any, 1.4);
+    }
   };
 
-  // Draw the full GIS map onto the Canvas
+  const handleZoomOut = () => {
+    if (d3CanvasRef.current && zoomRef.current) {
+      d3CanvasRef.current.transition().duration(300).call(zoomRef.current.scaleBy as any, 1 / 1.4);
+    }
+  };
+
+  const handleResetZoom = () => {
+    if (d3CanvasRef.current && zoomRef.current) {
+      d3CanvasRef.current.transition().duration(400).call(zoomRef.current.transform as any, d3.zoomIdentity);
+    }
+  };
+
+  // Initialize D3 Zoom
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    
-    const ctx = canvas.getContext('2d');
+
+    const d3Canvas = d3.select(canvas);
+    d3CanvasRef.current = d3Canvas;
+    const zoom = d3
+      .zoom<HTMLCanvasElement, unknown>()
+      .scaleExtent([0.5, 12])
+      .on("zoom", (event) => {
+        setTransform(event.transform);
+      });
+
+    zoomRef.current = zoom;
+    d3Canvas.call(zoom as any);
+  }, []);
+
+  // Main Canvas Rendering Loop
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    
-    // 1. Clear background (Deep dark space-GIS slate look)
-    ctx.fillStyle = '#0f172a'; // slate-900
+
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = dimensions.width * dpr;
+    canvas.height = dimensions.height * dpr;
+    ctx.scale(dpr, dpr);
+
+    // 1. Clear background
+    ctx.fillStyle = isDarkMode ? "#090d16" : "#f8f9fa";
     ctx.fillRect(0, 0, dimensions.width, dimensions.height);
-    
-    // Draw subtle grid lines
-    ctx.strokeStyle = 'rgba(51, 65, 85, 0.15)'; // slate-700
-    ctx.lineWidth = 1;
+
+    // Save context for transform zoom & pan
+    ctx.save();
+    ctx.translate(transform.x, transform.y);
+    ctx.scale(transform.k, transform.k);
+
+    // 2. Architectural Grid Lines
+    ctx.strokeStyle = isDarkMode ? "rgba(30, 41, 59, 0.4)" : "rgba(226, 232, 240, 0.6)";
+    ctx.lineWidth = 0.5 / transform.k;
     const gridSize = 40;
-    for (let x = 0; x < dimensions.width; x += gridSize) {
+    const startX = -transform.x / transform.k;
+    const endX = (dimensions.width - transform.x) / transform.k;
+    const startY = -transform.y / transform.k;
+    const endY = (dimensions.height - transform.y) / transform.k;
+
+    for (let x = Math.floor(startX / gridSize) * gridSize; x < endX; x += gridSize) {
       ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, dimensions.height);
+      ctx.moveTo(x, startY);
+      ctx.lineTo(x, endY);
       ctx.stroke();
     }
-    for (let y = 0; y < dimensions.height; y += gridSize) {
+    for (let y = Math.floor(startY / gridSize) * gridSize; y < endY; y += gridSize) {
       ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(dimensions.width, y);
+      ctx.moveTo(startX, y);
+      ctx.lineTo(endX, y);
       ctx.stroke();
     }
 
-    // 2. Draw catchment boundary polygons (translucent fills & dashed strokes)
+    // 3. Catchment Polygons
     catchments.forEach((c) => {
       const isSelected = selectedSensorId === c.sensor_id;
-      ctx.beginPath();
-      
-      // We need to convert vertices from EPSG:3857 back to lat/lon for canvas projection
-      // In a real GIS app we'd project. Since catchments coordinates are created from sensor lat/lons:
-      // We can map vertices by scaling their offsets. Or simpler: convert back using the inverse.
-      // Let's retrieve vertices in Lat/Lon and project to Canvas:
-      const sensor = sensors.find(s => s.sensor_id === c.sensor_id);
+      const sensor = sensors.find((s) => s.sensor_id === c.sensor_id);
       if (!sensor) return;
-      
-      const [sX, sY] = getXY(sensor.lat, sensor.lon);
-      
-      // Let's draw catchment hexagonal zones around each of the 12 primary sensors
+
       ctx.beginPath();
       for (let v = 0; v < c.vx.length; v++) {
-        // Approximate scaling: 1 meter in EPSG:3857 is approx 0.000009 degrees of lat/lon
         const dx_meters = c.vx[v] - c.vx[0];
         const dy_meters = c.vy[v] - c.vy[0];
         const vLat = sensor.lat + dy_meters * 0.000009;
         const vLon = sensor.lon + dx_meters * 0.00001;
-        
+
         const [vx, vy] = getXY(vLat, vLon);
         if (v === 0) ctx.moveTo(vx, vy);
         else ctx.lineTo(vx, vy);
       }
       ctx.closePath();
-      
+
       if (isSelected) {
-        ctx.fillStyle = 'rgba(6, 182, 212, 0.08)'; // pulsing cyan
-        ctx.strokeStyle = 'rgba(6, 182, 212, 0.6)';
-        ctx.lineWidth = 2;
-        ctx.setLineDash([6, 4]);
+        ctx.fillStyle = "rgba(192, 38, 211, 0.15)";
+        ctx.strokeStyle = "rgba(192, 38, 211, 0.8)";
+        ctx.lineWidth = 2 / transform.k;
+        ctx.setLineDash([6 / transform.k, 4 / transform.k]);
       } else {
-        ctx.fillStyle = 'rgba(148, 163, 184, 0.015)'; // very faint
-        ctx.strokeStyle = 'rgba(148, 163, 184, 0.15)';
-        ctx.lineWidth = 1;
-        ctx.setLineDash([4, 6]);
+        ctx.fillStyle = isDarkMode
+          ? "rgba(30, 41, 59, 0.25)"
+          : "rgba(241, 245, 249, 0.5)";
+        ctx.strokeStyle = isDarkMode ? "rgba(71, 85, 105, 0.25)" : "rgba(203, 213, 225, 0.6)";
+        ctx.lineWidth = 0.8 / transform.k;
       }
       ctx.fill();
       ctx.stroke();
-      ctx.setLineDash([]); // reset
+      ctx.setLineDash([]);
     });
 
-    // 3. Draw 30,000 RT Neighborhood points (Heatmap style)
-    // To draw 30,000 points instantly, we use ImageData or fast canvas arc drawing.
-    // Rect draws are extremely fast.
+    // 4. Major Rivers Network Lines
+    MAJOR_RIVERS.forEach((river) => {
+      ctx.beginPath();
+      river.coords.forEach(([rLat, rLon], idx) => {
+        const [rx, ry] = getXY(rLat, rLon);
+        if (idx === 0) ctx.moveTo(rx, ry);
+        else ctx.lineTo(rx, ry);
+      });
+      ctx.strokeStyle = isDarkMode ? "rgba(37, 99, 235, 0.65)" : "rgba(59, 130, 246, 0.75)";
+      ctx.lineWidth = 3.5 / Math.sqrt(transform.k);
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.stroke();
+    });
+
+    // 5. 30,000 RT Neighborhood points (Terracotta -> Rose Magenta -> Royal Indigo)
+    const ptSize = Math.max(0.8, 1.5 / Math.sqrt(transform.k));
     rts.forEach((rt) => {
       const [x, y] = getXY(rt.lat, rt.lon);
-      
-      // Map Risk Score to a distinct solid color
-      let color = '';
-      if (rt.risk_priority_score > 0.72) {
-        color = '#ef4444'; // Red (Severe hazard / evacuations)
-      } else if (rt.risk_priority_score > 0.50) {
-        color = '#f97316'; // Orange (High risk)
-      } else if (rt.risk_priority_score > 0.30) {
-        color = '#eab308'; // Yellow (Warning)
+
+      let color = "";
+      if (activeLayer === "density") {
+        const den = rt.population_density || 5000;
+        if (den > 35000) color = "#d97706";
+        else if (den > 25000) color = "#c026d3";
+        else if (den > 15000) color = "#2563eb";
+        else color = isDarkMode ? "rgba(71, 85, 105, 0.3)" : "rgba(203, 213, 225, 0.5)";
+      } else if (activeLayer === "evacuation") {
+        color = isDarkMode ? "rgba(71, 85, 105, 0.2)" : "rgba(203, 213, 225, 0.4)";
       } else {
-        color = 'rgba(71, 85, 105, 0.25)'; // Dark Slate-600 (Low risk)
+        if (rt.risk_priority_score > 0.72) color = "#e11d48";
+        else if (rt.risk_priority_score > 0.5) color = "#c026d3";
+        else if (rt.risk_priority_score > 0.3) color = "#2563eb";
+        else color = isDarkMode ? "rgba(51, 65, 85, 0.4)" : "rgba(203, 213, 225, 0.6)";
       }
-      
-      // If this specific RT is selected, draw a highlight ring later
-      if (selectedRt && selectedRt.rt_id === rt.rt_id) {
-        // Handled below
-      } else {
-        ctx.fillStyle = color;
-        ctx.fillRect(x - 0.75, y - 0.75, 1.5, 1.5);
-      }
+
+      ctx.fillStyle = color;
+      ctx.fillRect(x - ptSize / 2, y - ptSize / 2, ptSize, ptSize);
     });
 
-    // Highlight selected RT point if present
+    // 6. Selected RT Highlight Ring
     if (selectedRt) {
       const [x, y] = getXY(selectedRt.lat, selectedRt.lon);
       ctx.beginPath();
-      ctx.arc(x, y, 6, 0, 2 * Math.PI);
-      ctx.fillStyle = '#22c55e'; // Bright Green for selected
+      ctx.arc(x, y, 7 / Math.sqrt(transform.k), 0, 2 * Math.PI);
+      ctx.fillStyle = "#c026d3";
       ctx.fill();
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 2 / Math.sqrt(transform.k);
       ctx.stroke();
     }
 
-    // 3.5. Draw Dijkstra Evacuation Route and shelters (Muster Points)
+    // 7. Dijkstra Evacuation Route Line
     if (selectedRt && activeRoute && activeRoute.pathNodes.length > 0) {
-      ctx.beginPath();
       const [rtX, rtY] = getXY(selectedRt.lat, selectedRt.lon);
-      ctx.moveTo(rtX, rtY);
 
-      activeRoute.pathNodes.forEach((node) => {
-        const [nx, ny] = getXY(node.lat, node.lon);
-        ctx.lineTo(nx, ny);
-      });
-
-      // Outer glow styling for the evacuation path
-      ctx.strokeStyle = 'rgba(34, 197, 94, 0.75)'; // Transparent solid emerald
-      ctx.lineWidth = 4.5;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.stroke();
-
-      // Inner moving dashed white styling for action-path visual cues
       ctx.beginPath();
       ctx.moveTo(rtX, rtY);
       activeRoute.pathNodes.forEach((node) => {
         const [nx, ny] = getXY(node.lat, node.lon);
         ctx.lineTo(nx, ny);
       });
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 1.5;
-      ctx.lineCap = 'round';
-      ctx.setLineDash([8, 5]);
+
+      ctx.strokeStyle = "#d97706"; // Terracotta Gold path
+      ctx.lineWidth = 4 / Math.sqrt(transform.k);
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
       ctx.stroke();
-      ctx.setLineDash([]);
     }
 
-    // Draw Shelter Muster Points
+    // 8. Muster Points / Shelters
     MUSTER_POINTS.forEach((mp) => {
       const [x, y] = getXY(mp.lat, mp.lon);
-      const isTargetShelter = activeRoute && activeRoute.musterPoint.id === mp.id;
-      const isHovered = hoveredMusterPoint?.id === mp.id;
+      const isTarget = activeRoute && activeRoute.musterPoint.id === mp.id;
+      const r = (isTarget ? 7 : 5) / Math.sqrt(transform.k);
 
-      // Outer ring animation/halo for target shelter
-      if (isTargetShelter) {
-        ctx.beginPath();
-        ctx.arc(x, y, 15, 0, 2 * Math.PI);
-        ctx.strokeStyle = 'rgba(34, 197, 94, 0.6)';
-        ctx.lineWidth = 2;
-        ctx.setLineDash([4, 2]);
-        ctx.stroke();
-        ctx.setLineDash([]);
-
-        ctx.beginPath();
-        ctx.arc(x, y, 19, 0, 2 * Math.PI);
-        ctx.strokeStyle = 'rgba(34, 197, 94, 0.3)';
-        ctx.lineWidth = 1;
-        ctx.stroke();
-      } else if (isHovered) {
-        ctx.beginPath();
-        ctx.arc(x, y, 12, 0, 2 * Math.PI);
-        ctx.strokeStyle = 'rgba(148, 163, 184, 0.5)';
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-      }
-
-      // Draw solid refuge shield symbol (represented as circle-pentagon or custom styling)
       ctx.beginPath();
-      ctx.arc(x, y, isTargetShelter ? 9 : 7, 0, 2 * Math.PI);
-      ctx.fillStyle = '#10b981'; // Emerald-500
+      ctx.arc(x, y, r, 0, 2 * Math.PI);
+      ctx.fillStyle = isTarget ? "#10b981" : "#2563eb";
       ctx.fill();
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-
-      // Write 'H' (Haven) inside shelter center
-      ctx.font = `bold ${isTargetShelter ? '9px' : '8px'} monospace`;
-      ctx.fillStyle = '#ffffff';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('H', x, y);
-    });
-
-    // 4. Draw Rivers (Ciliwung, Pesanggrahan, Sunter) flowing South to North
-    ctx.strokeStyle = 'rgba(59, 130, 246, 0.45)'; // trans blue
-    ctx.lineWidth = 3.5;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    
-    // Draw 3 simulated river channels
-    const rivers = [
-      // Ciliwung
-      [[-6.37, 106.84], [-6.30, 106.85], [-6.25, 106.83], [-6.208, 106.848], [-6.16, 106.83], [-6.11, 106.84]],
-      // Pesanggrahan / Angke
-      [[-6.36, 106.73], [-6.315, 106.762], [-6.25, 106.75], [-6.18, 106.72], [-6.12, 106.73]],
-      // Sunter
-      [[-6.35, 106.91], [-6.28, 106.91], [-6.20, 106.89], [-6.15, 106.90], [-6.09, 106.895]]
-    ];
-    
-    rivers.forEach((coords) => {
-      ctx.beginPath();
-      coords.forEach(([lat, lon], idx) => {
-        const [x, y] = getXY(lat, lon);
-        if (idx === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      });
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 1.5 / Math.sqrt(transform.k);
       ctx.stroke();
     });
 
-    // 5. Draw Weather Stations (BMKG) with rainwave animations
+    // 9. Weather Stations (BMKG)
     stations.forEach((st) => {
       const [x, y] = getXY(st.lat, st.lon);
-      const isHovered = hoveredStation?.station_id === st.station_id;
-      
+      const r = 4 / Math.sqrt(transform.k);
+
       ctx.beginPath();
-      ctx.arc(x, y, isHovered ? 7 : 5, 0, 2 * Math.PI);
-      ctx.fillStyle = '#06b6d4'; // BMKG Cyan
+      ctx.arc(x, y, r, 0, 2 * Math.PI);
+      ctx.fillStyle = "#06b6d4"; // Cyan
       ctx.fill();
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 1;
-      ctx.stroke();
-      
-      // Concentric rainfall rings based on current mm/hr
-      ctx.beginPath();
-      ctx.arc(x, y, 10 + st.current_rainfall_mm_hr * 0.18, 0, 2 * Math.PI);
-      ctx.strokeStyle = 'rgba(6, 182, 212, 0.25)';
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 1 / Math.sqrt(transform.k);
       ctx.stroke();
     });
 
-    // 6. Draw River Sensors / Gates
+    // 10. River Telemetry Sensors (Pintu Air / Gates)
     sensors.forEach((s) => {
       const [x, y] = getXY(s.lat, s.lon);
       const isSelected = selectedSensorId === s.sensor_id;
-      const isHovered = hoveredSensor?.sensor_id === s.sensor_id;
-      
-      // Determine color from exceedance probability (EVT threshold)
-      let color = '#3b82f6'; // Blue (Siaga 4 / Safe)
-      if (s.exceedance_prob > 0.8) {
-        color = '#ef4444'; // Red (Siaga 1)
-      } else if (s.exceedance_prob > 0.5) {
-        color = '#f97316'; // Orange (Siaga 2)
-      } else if (s.exceedance_prob > 0.2) {
-        color = '#eab308'; // Yellow (Siaga 3)
-      }
-      
-      // Selection ring
-      if (isSelected || isHovered) {
+      const r = (isSelected ? 7 : 5) / Math.sqrt(transform.k);
+
+      // Warning pulse ring
+      if (s.exceedance_prob > 0.5) {
         ctx.beginPath();
-        ctx.arc(x, y, 12, 0, 2 * Math.PI);
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 1.5;
+        ctx.arc(x, y, 12 / Math.sqrt(transform.k), 0, Math.PI * 2);
+        ctx.strokeStyle = s.exceedance_prob > 0.8 ? "rgba(225, 29, 72, 0.7)" : "rgba(192, 38, 211, 0.7)";
+        ctx.lineWidth = 1.5 / Math.sqrt(transform.k);
         ctx.stroke();
-        
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
-        ctx.fill();
       }
-      
-      // Core dot representing active sensor
+
       ctx.beginPath();
-      ctx.arc(x, y, 6, 0, 2 * Math.PI);
-      ctx.fillStyle = color;
+      ctx.arc(x, y, r, 0, 2 * Math.PI);
+      ctx.fillStyle = s.exceedance_prob > 0.8 ? "#e11d48" : s.exceedance_prob > 0.5 ? "#c026d3" : "#2563eb";
       ctx.fill();
-      ctx.strokeStyle = '#000000';
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 2 / Math.sqrt(transform.k);
       ctx.stroke();
+
+      // Label when zoomed in or selected
+      if (transform.k > 1.4 || isSelected) {
+        ctx.fillStyle = isDarkMode ? "#f8fafc" : "#0f172a";
+        ctx.font = `bold ${Math.max(9, Math.min(13, 11 / Math.sqrt(transform.k)))}px monospace`;
+        ctx.fillText(s.name, x + 8 / Math.sqrt(transform.k), y + 3 / Math.sqrt(transform.k));
+      }
     });
 
-    // 7. Render scale and legend markers inside the canvas HUD
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
-    ctx.fillRect(dimensions.width - 150, dimensions.height - 160, 140, 150);
-    ctx.strokeStyle = '#334155';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(dimensions.width - 150, dimensions.height - 160, 140, 150);
-    
-    // Legend text
-    ctx.font = '10px monospace';
-    ctx.fillStyle = '#94a3b8';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'alphabetic';
-    ctx.fillText('GIS RISK HUD', dimensions.width - 140, dimensions.height - 145);
-    
-    const legendItems = [
-      { color: '#ef4444', text: 'Severe / Evac' },
-      { color: '#f97316', text: 'High Hazard' },
-      { color: '#eab308', text: 'Warning RT' },
-      { color: '#3b82f6', text: 'River Sensor' },
-      { color: '#06b6d4', text: 'BMKG Station' },
-      { color: '#10b981', text: 'Muster Haven' },
-      { color: '#22c55e', text: 'Evac Route' }
-    ];
-    
-    legendItems.forEach((item, index) => {
-      const ly = dimensions.height - 130 + index * 14;
-      ctx.fillStyle = item.color;
-      ctx.beginPath();
-      ctx.arc(dimensions.width - 136, ly, 4, 0, 2 * Math.PI);
-      ctx.fill();
-      
-      ctx.fillStyle = '#e2e8f0';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(item.text, dimensions.width - 124, ly);
-    });
+    // 11. Logistics Assets
+    if (showLogisticsLayer) {
+      logisticsAssets.forEach((asset) => {
+        const [x, y] = getXY(asset.lat, asset.lon);
+        const r = 3.5 / Math.sqrt(transform.k);
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, 2 * Math.PI);
+        ctx.fillStyle = asset.type === "rescue_boat" ? "#f59e0b" : asset.type === "evac_truck" ? "#10b981" : "#8b5cf6";
+        ctx.fill();
+      });
+    }
 
-  }, [dimensions, rts, sensors, stations, catchments, selectedSensorId, selectedRt, hoveredSensor, hoveredStation, activeRoute, hoveredMusterPoint]);
+    ctx.restore();
+  }, [dimensions, rts, sensors, stations, catchments, selectedSensorId, selectedRt, activeRoute, activeLayer, transform, isDarkMode, showLogisticsLayer, logisticsAssets]);
 
-  // Handle canvas click to select sensors, stations, or nearest RT
+  // Handle click on canvas to select Sensor or RT
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    
     const rect = canvas.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const clickY = e.clientY - rect.top;
-    
-    // 1. Check if clicked near a River Sensor (12px tolerance)
-    for (let s of sensors) {
-      const [x, y] = getXY(s.lat, s.lon);
-      const dist = Math.hypot(clickX - x, clickY - y);
-      if (dist < 12) {
-        onSelectSensor(s.sensor_id);
-        onSelectRt(null); // clear RT selection
-        return;
-      }
-    }
-    
-    // 2. Check if clicked near an RT unit (10px tolerance, find nearest)
-    let nearestRt: NeighborhoodRT | null = null;
-    let minRtDist = 10;
-    
-    rts.forEach((rt) => {
-      const [x, y] = getXY(rt.lat, rt.lon);
-      const dist = Math.hypot(clickX - x, clickY - y);
-      if (dist < minRtDist) {
-        minRtDist = dist;
-        nearestRt = rt;
-      }
-    });
-    
-    if (nearestRt) {
-      onSelectRt(nearestRt);
-    } else {
-      onSelectRt(null);
-    }
-  };
+    const rawX = e.clientX - rect.left;
+    const rawY = e.clientY - rect.top;
 
-  // Handle canvas hover to show custom tooltips
-  const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    
-    const rect = canvas.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
-    
-    let hoveredS: RiverSensor | null = null;
-    let hoveredSt: WeatherStation | null = null;
-    let hoveredMp: MusterPoint | null = null;
-    
-    // Check Muster Points (12px tolerance)
-    for (let mp of MUSTER_POINTS) {
-      const [x, y] = getXY(mp.lat, mp.lon);
-      if (Math.hypot(mouseX - x, mouseY - y) < 12) {
-        hoveredMp = mp;
+    const projX = (rawX - transform.x) / transform.k;
+    const projY = (rawY - transform.y) / transform.k;
+
+    // Check Sensors first
+    let foundSensor: RiverSensor | null = null;
+    for (const s of sensors) {
+      const [sx, sy] = getXY(s.lat, s.lon);
+      const dist = Math.hypot(projX - sx, projY - sy);
+      if (dist < 14 / transform.k) {
+        foundSensor = s;
         break;
       }
     }
 
-    // Check sensors
-    if (!hoveredMp) {
-      for (let s of sensors) {
-        const [x, y] = getXY(s.lat, s.lon);
-        if (Math.hypot(mouseX - x, mouseY - y) < 10) {
-          hoveredS = s;
-          break;
-        }
+    if (foundSensor) {
+      onSelectSensor(foundSensor.sensor_id);
+      return;
+    }
+
+    // Check RTs
+    let nearestRt: NeighborhoodRT | null = null;
+    let minDist = 18 / transform.k;
+    for (const rt of rts) {
+      const [rx, ry] = getXY(rt.lat, rt.lon);
+      const dist = Math.hypot(projX - rx, projY - ry);
+      if (dist < minDist) {
+        minDist = dist;
+        nearestRt = rt;
       }
     }
-    
-    // Check stations
-    if (!hoveredMp && !hoveredS) {
-      for (let st of stations) {
-        const [x, y] = getXY(st.lat, st.lon);
-        if (Math.hypot(mouseX - x, mouseY - y) < 8) {
-          hoveredSt = st;
-          break;
-        }
+
+    if (nearestRt) {
+      onSelectRt(nearestRt);
+    }
+  };
+
+  // Hover detection
+  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const rawX = e.clientX - rect.left;
+    const rawY = e.clientY - rect.top;
+
+    const projX = (rawX - transform.x) / transform.k;
+    const projY = (rawY - transform.y) / transform.k;
+
+    let hoverS: RiverSensor | null = null;
+    for (const s of sensors) {
+      const [sx, sy] = getXY(s.lat, s.lon);
+      if (Math.hypot(projX - sx, projY - sy) < 14 / transform.k) {
+        hoverS = s;
+        break;
       }
     }
-    
-    setHoveredSensor(hoveredS);
-    setHoveredStation(hoveredSt);
-    setHoveredMusterPoint(hoveredMp);
-    canvas.style.cursor = (hoveredS || hoveredSt || hoveredMp) ? 'pointer' : 'default';
+
+    if (hoverS) {
+      setHoveredSensor(hoverS);
+      setTooltipPos({ x: rawX, y: rawY });
+      return;
+    } else {
+      setHoveredSensor(null);
+    }
+
+    let hoverMp: MusterPoint | null = null;
+    for (const mp of MUSTER_POINTS) {
+      const [mx, my] = getXY(mp.lat, mp.lon);
+      if (Math.hypot(projX - mx, projY - my) < 12 / transform.k) {
+        hoverMp = mp;
+        break;
+      }
+    }
+
+    if (hoverMp) {
+      setHoveredMusterPoint(hoverMp);
+      setTooltipPos({ x: rawX, y: rawY });
+      return;
+    } else {
+      setHoveredMusterPoint(null);
+    }
+
+    setTooltipPos(null);
   };
 
   return (
-    <div ref={containerRef} className="w-full h-full relative overflow-hidden bg-slate-950 rounded-xl border border-slate-800 shadow-2xl">
-      <canvas
-        ref={canvasRef}
-        width={dimensions.width}
-        height={dimensions.height}
-        onClick={handleCanvasClick}
-        onMouseMove={handleCanvasMouseMove}
-        className="block"
-      />
-      
-      {/* Floating Spatial GIS Map HUD Overlay */}
-      <div className="absolute top-4 left-4 bg-slate-900/90 backdrop-blur-md px-3.5 py-2.5 rounded-lg border border-slate-800 pointer-events-none">
-        <h3 className="font-display font-medium text-xs tracking-wider text-brand-cyan">GIS GEOSPATIAL STAGE</h3>
-        <p className="text-[10px] font-mono text-slate-400 mt-1">PROJECTION: EPSG:3857 WEB MERCATOR</p>
-        <p className="text-[10px] font-mono text-slate-500 mt-0.5">RESOLVED CORES: 30,000 NEIGHBORHOOD UNITS</p>
+    <div ref={containerRef} className="relative w-full h-full min-h-[400px] select-none overflow-hidden">
+      {/* Top Map Layer Switcher Controls */}
+      <div className="absolute top-3 left-3 z-20 flex flex-wrap items-center gap-1.5 bg-white/90 dark:bg-slate-900/90 p-1.5 rounded-xl border border-stone-200 dark:border-slate-800 shadow-md backdrop-blur-md">
+        <button
+          onClick={() => setActiveLayer("depth")}
+          className={`px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold transition-all cursor-pointer ${
+            activeLayer === "depth"
+              ? "bg-amber-600 text-white shadow-sm"
+              : "text-stone-700 dark:text-slate-300 hover:bg-stone-100 dark:hover:bg-slate-800"
+          }`}
+        >
+          Flood Hazard
+        </button>
+        <button
+          onClick={() => setActiveLayer("density")}
+          className={`px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold transition-all cursor-pointer ${
+            activeLayer === "density"
+              ? "bg-fuchsia-600 text-white shadow-sm"
+              : "text-stone-700 dark:text-slate-300 hover:bg-stone-100 dark:hover:bg-slate-800"
+          }`}
+        >
+          Population
+        </button>
+        <button
+          onClick={() => setActiveLayer("evacuation")}
+          className={`px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold transition-all cursor-pointer ${
+            activeLayer === "evacuation"
+              ? "bg-blue-600 text-white shadow-sm"
+              : "text-stone-700 dark:text-slate-300 hover:bg-stone-100 dark:hover:bg-slate-800"
+          }`}
+        >
+          Evacuation
+        </button>
       </div>
 
-      {/* Real-Time Hover Information Tooltips */}
-      {hoveredSensor && (
-        <div 
-          className="absolute bg-slate-950/95 border border-slate-700 p-3 rounded-lg text-xs pointer-events-none shadow-2xl z-20 font-mono text-white max-w-xs"
-          style={{ 
-            left: `${Math.min(dimensions.width - 240, getXY(hoveredSensor.lat, hoveredSensor.lon)[0] + 15)}px`, 
-            top: `${Math.min(dimensions.height - 130, getXY(hoveredSensor.lat, hoveredSensor.lon)[1] - 30)}px` 
-          }}
+      {/* Map Control Buttons (Zoom +/- & Layers) */}
+      <div className="absolute bottom-4 right-4 z-20 flex flex-col gap-1.5">
+        <button
+          onClick={handleZoomIn}
+          title="Zoom In"
+          className="p-2 rounded-xl bg-white/90 dark:bg-slate-900/90 border border-stone-200 dark:border-slate-800 text-stone-700 dark:text-slate-200 shadow-md hover:bg-stone-100 dark:hover:bg-slate-800 cursor-pointer"
         >
-          <div className="text-brand-cyan font-bold">{hoveredSensor.name}</div>
-          <div className="text-[10px] text-slate-400 mt-0.5">ID: {hoveredSensor.sensor_id}</div>
-          <div className="mt-1.5 flex justify-between gap-4">
-            <span className="text-slate-400">Live TMA Level:</span>
-            <span className="font-semibold text-white">{hoveredSensor.water_level_cm.toFixed(1)} cm</span>
-          </div>
-          <div className="flex justify-between gap-4">
-            <span className="text-slate-400">EVT Exceedance P:</span>
-            <span className="font-semibold text-brand-orange">{(hoveredSensor.exceedance_prob * 100).toFixed(2)}%</span>
-          </div>
-          <div className="flex justify-between gap-4 text-[10px] border-t border-slate-800 mt-1 pt-1 text-slate-500">
-            <span>&mu;={hoveredSensor.mu.toFixed(0)} &sigma;={hoveredSensor.sigma.toFixed(0)} &xi;={hoveredSensor.xi.toFixed(2)}</span>
-          </div>
+          <Plus className="w-4 h-4" />
+        </button>
+        <button
+          onClick={handleZoomOut}
+          title="Zoom Out"
+          className="p-2 rounded-xl bg-white/90 dark:bg-slate-900/90 border border-stone-200 dark:border-slate-800 text-stone-700 dark:text-slate-200 shadow-md hover:bg-stone-100 dark:hover:bg-slate-800 cursor-pointer"
+        >
+          <Minus className="w-4 h-4" />
+        </button>
+        <button
+          onClick={handleResetZoom}
+          title="Reset Zoom"
+          className="p-2 rounded-xl bg-white/90 dark:bg-slate-900/90 border border-stone-200 dark:border-slate-800 text-stone-700 dark:text-slate-200 shadow-md hover:bg-stone-100 dark:hover:bg-slate-800 cursor-pointer"
+        >
+          <RotateCcw className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Compact Risk Legend Bar (Bottom Left) */}
+      <div className="absolute bottom-4 left-4 z-20 bg-white/90 dark:bg-slate-900/90 px-3 py-2 rounded-xl border border-stone-200 dark:border-slate-800 shadow-md backdrop-blur-md space-y-1 font-mono text-[10px]">
+        <div className="text-stone-500 dark:text-slate-400 font-bold uppercase text-[9px]">
+          Risk Spectrum
+        </div>
+        <div className="w-36 h-2 rounded-full bg-gradient-to-r from-indigo-600 via-fuchsia-600 to-amber-600"></div>
+        <div className="flex justify-between text-stone-600 dark:text-slate-400 text-[9px]">
+          <span>Low</span>
+          <span>Warning</span>
+          <span>Critical</span>
+        </div>
+      </div>
+
+      {/* Hover Tooltip */}
+      {hoveredSensor && tooltipPos && (
+        <div
+          className="absolute z-30 pointer-events-none bg-slate-900 text-white text-xs p-2.5 rounded-xl shadow-xl border border-slate-700 font-mono space-y-1"
+          style={{ left: tooltipPos.x + 12, top: tooltipPos.y - 12 }}
+        >
+          <div className="font-bold text-cyan-400">{hoveredSensor.name}</div>
+          <div>Water Level: <span className="font-bold text-amber-400">{hoveredSensor.water_level_cm.toFixed(0)} cm</span></div>
+          <div>Risk Exceedance: <span className="font-bold text-rose-400">{(hoveredSensor.exceedance_prob * 100).toFixed(1)}%</span></div>
         </div>
       )}
 
-      {hoveredStation && (
-        <div 
-          className="absolute bg-slate-950/95 border border-slate-700 p-3 rounded-lg text-xs pointer-events-none shadow-2xl z-20 font-mono text-white max-w-xs"
-          style={{ 
-            left: `${Math.min(dimensions.width - 240, getXY(hoveredStation.lat, hoveredStation.lon)[0] + 15)}px`, 
-            top: `${Math.min(dimensions.height - 120, getXY(hoveredStation.lat, hoveredStation.lon)[1] - 30)}px` 
-          }}
+      {hoveredMusterPoint && tooltipPos && (
+        <div
+          className="absolute z-30 pointer-events-none bg-slate-900 text-white text-xs p-2.5 rounded-xl shadow-xl border border-slate-700 font-mono space-y-1"
+          style={{ left: tooltipPos.x + 12, top: tooltipPos.y - 12 }}
         >
-          <div className="text-brand-cyan font-bold">{hoveredStation.name} Weather Grid</div>
-          <div className="text-[10px] text-slate-400 mt-0.5">ID: {hoveredStation.station_id}</div>
-          <div className="mt-1.5 flex justify-between gap-4">
-            <span className="text-slate-400">Current Rainfall:</span>
-            <span className="font-semibold text-white">{hoveredStation.current_rainfall_mm_hr.toFixed(1)} mm/hr</span>
-          </div>
+          <div className="font-bold text-emerald-400">{hoveredMusterPoint.name}</div>
+          <div>Capacity: <span className="font-bold">{hoveredMusterPoint.capacity} persons</span></div>
+          <div>Location: <span className="text-slate-300">{hoveredMusterPoint.kelurahan}</span></div>
         </div>
       )}
 
-      {hoveredMusterPoint && (
-        <div 
-          className="absolute bg-slate-950/95 border border-emerald-500/50 p-3 rounded-lg text-xs pointer-events-none shadow-2xl z-20 font-mono text-white max-w-xs"
-          style={{ 
-            left: `${Math.min(dimensions.width - 240, getXY(hoveredMusterPoint.lat, hoveredMusterPoint.lon)[0] + 15)}px`, 
-            top: `${Math.min(dimensions.height - 140, getXY(hoveredMusterPoint.lat, hoveredMusterPoint.lon)[1] - 30)}px` 
-          }}
-        >
-          <div className="text-emerald-400 font-bold flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            {hoveredMusterPoint.name}
-          </div>
-          <div className="text-[10px] text-slate-400 mt-0.5">ID: {hoveredMusterPoint.id}</div>
-          <div className="mt-1.5 flex justify-between gap-4">
-            <span className="text-slate-400">Shelter Capacity:</span>
-            <span className="font-semibold text-white">{hoveredMusterPoint.capacity.toLocaleString()} Pax</span>
-          </div>
-          <div className="flex justify-between gap-4">
-            <span className="text-slate-400">Current Occupants:</span>
-            <span className="font-semibold text-white">
-              {hoveredMusterPoint.occupied.toLocaleString()} ({Math.round((hoveredMusterPoint.occupied / hoveredMusterPoint.capacity) * 100)}%)
-            </span>
-          </div>
-          <div className="text-[10px] border-t border-slate-800 mt-1.5 pt-1 text-slate-500 leading-normal">
-            Safe, high-ground refuge facility. Automatically mapped as Dijkstra target destination.
-          </div>
-        </div>
-      )}
+      <canvas
+        ref={canvasRef}
+        onClick={handleCanvasClick}
+        onMouseMove={handleMouseMove}
+        className="w-full h-full cursor-grab active:cursor-grabbing block"
+      />
     </div>
   );
 };

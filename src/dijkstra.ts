@@ -1,17 +1,35 @@
-import { MusterPoint, RoadNode, RoadEdge, EvacuationRoute, RiverSensor } from './types';
-import { MUSTER_POINTS, ROAD_NODES, ROAD_EDGES, SHELTER_CONNECTORS } from './routing_data';
+import {
+  MusterPoint,
+  RoadNode,
+  RoadEdge,
+  EvacuationRoute,
+  RiverSensor,
+} from "./types";
+import {
+  MUSTER_POINTS,
+  ROAD_NODES,
+  ROAD_EDGES,
+  SHELTER_CONNECTORS,
+} from "./routing_data";
 
 /**
  * Calculates spherical distance in kilometers using the Haversine formula
  */
-export function getDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+export function getDistanceKm(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
+): number {
   const R = 6371; // Earth's radius in km
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = 
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 }
@@ -25,7 +43,7 @@ export function getEdgeCost(
   fromNode: { lat: number; lon: number },
   toNode: { lat: number; lon: number },
   baseDistanceKm: number,
-  sensors: RiverSensor[]
+  sensors: RiverSensor[],
 ): { cost: number; averageHazard: number } {
   // Midpoint of the road segment
   const midLat = (fromNode.lat + toNode.lat) / 2;
@@ -51,7 +69,7 @@ export function getEdgeCost(
     const proximityWeight = Math.max(0, 1 - minDist / 2.2); // 1.0 at 0km, 0 at 2.2km
     const floodProbability = nearestSensor.exceedance_prob; // 0.0 to 1.0
 
-    if (floodProbability > 0.20) {
+    if (floodProbability > 0.2) {
       averageHazard = floodProbability * proximityWeight;
       // High hazard raises edge weight by up to 10x, triggering Dijkstra detours
       penaltyMultiplier = 1.0 + averageHazard * 9.0;
@@ -60,7 +78,7 @@ export function getEdgeCost(
 
   return {
     cost: baseDistanceKm * penaltyMultiplier,
-    averageHazard
+    averageHazard,
   };
 }
 
@@ -71,7 +89,7 @@ export function getEdgeCost(
 export function calculateEvacuationRoute(
   startLat: number,
   startLon: number,
-  sensors: RiverSensor[]
+  sensors: RiverSensor[],
 ): EvacuationRoute | null {
   // 1. Locate the nearest entry node on the road network
   let startNode: RoadNode | null = null;
@@ -89,7 +107,10 @@ export function calculateEvacuationRoute(
 
   // 2. Build adjacency list of the graph
   // We include both RoadNodes and MusterPoints as graph vertices
-  const graph: Record<string, { toId: string; baseDist: number; name: string }[]> = {};
+  const graph: Record<
+    string,
+    { toId: string; baseDist: number; name: string }[]
+  > = {};
 
   // Initialize nodes
   for (const node of ROAD_NODES) {
@@ -101,18 +122,37 @@ export function calculateEvacuationRoute(
 
   // Add road edges (bidirectional)
   for (const edge of ROAD_EDGES) {
-    graph[edge.fromId].push({ toId: edge.toId, baseDist: edge.baseDistanceKm, name: edge.name });
-    graph[edge.toId].push({ toId: edge.fromId, baseDist: edge.baseDistanceKm, name: edge.name });
+    graph[edge.fromId].push({
+      toId: edge.toId,
+      baseDist: edge.baseDistanceKm,
+      name: edge.name,
+    });
+    graph[edge.toId].push({
+      toId: edge.fromId,
+      baseDist: edge.baseDistanceKm,
+      name: edge.name,
+    });
   }
 
   // Add shelter connector edges (bidirectional)
   for (const conn of SHELTER_CONNECTORS) {
-    graph[conn.shelterId].push({ toId: conn.roadNodeId, baseDist: conn.distanceKm, name: "Shelter Access Rd" });
-    graph[conn.roadNodeId].push({ toId: conn.shelterId, baseDist: conn.distanceKm, name: "Shelter Access Rd" });
+    graph[conn.shelterId].push({
+      toId: conn.roadNodeId,
+      baseDist: conn.distanceKm,
+      name: "Shelter Access Rd",
+    });
+    graph[conn.roadNodeId].push({
+      toId: conn.shelterId,
+      baseDist: conn.distanceKm,
+      name: "Shelter Access Rd",
+    });
   }
 
   // Map of all graph nodes (RoadNodes + MusterPoints) to get coordinates
-  const allNodesMap: Record<string, { lat: number; lon: number; name: string; id: string }> = {};
+  const allNodesMap: Record<
+    string,
+    { lat: number; lon: number; name: string; id: string }
+  > = {};
   for (const node of ROAD_NODES) {
     allNodesMap[node.id] = node;
   }
@@ -162,7 +202,12 @@ export function calculateEvacuationRoute(
       if (!unvisited.has(neighbor.toId)) continue;
 
       const vNode = allNodesMap[neighbor.toId];
-      const { cost, averageHazard } = getEdgeCost(uNode, vNode, neighbor.baseDist, sensors);
+      const { cost, averageHazard } = getEdgeCost(
+        uNode,
+        vNode,
+        neighbor.baseDist,
+        sensors,
+      );
       const altCost = distances[u] + cost;
 
       if (altCost < distances[neighbor.toId]) {
@@ -199,24 +244,27 @@ export function calculateEvacuationRoute(
   }
 
   // Convert IDs back to RoadNode / MusterPoint objects (represented as RoadNode format)
-  const pathNodes: RoadNode[] = pathNodeIds.map(id => {
+  const pathNodes: RoadNode[] = pathNodeIds.map((id) => {
     const node = allNodesMap[id];
     return {
       id: node.id,
       name: node.name,
       lat: node.lat,
-      lon: node.lon
+      lon: node.lon,
     };
   });
 
   // Calculate the path's safety score (100 is perfectly safe, 0 is heavily flooded)
   const pathHazard = hazards[bestMusterPoint.id];
-  const safetyScore = Math.max(0, Math.min(100, Math.round((1.0 - pathHazard) * 100)));
+  const safetyScore = Math.max(
+    0,
+    Math.min(100, Math.round((1.0 - pathHazard) * 100)),
+  );
 
   return {
     pathNodes,
     totalDistanceKm: baseDistances[bestMusterPoint.id],
     musterPoint: bestMusterPoint,
-    safetyScore
+    safetyScore,
   };
 }

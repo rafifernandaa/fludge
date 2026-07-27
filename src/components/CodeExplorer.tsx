@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
-import { Clipboard, Check, Terminal, Cpu, Zap, Download } from 'lucide-react';
+import React, { useState } from "react";
+import { Clipboard, Check, Terminal, Cpu, Zap, Download } from "lucide-react";
 
 export const CodeExplorer: React.FC = () => {
   const [copied, setCopied] = useState(false);
-  const [activeTab, setActiveTab] = useState<'python' | 'math' | 'deploy'>('python');
+  const [activeTab, setActiveTab] = useState<"python" | "math" | "deploy">(
+    "python",
+  );
 
   const pythonCode = `#!/usr/bin/env python3
 """
@@ -345,7 +347,7 @@ def run_pipeline():
 if __name__ == "__main__":
     run_pipeline()
 `;
-    
+
     navigator.clipboard.writeText(fullScript).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -353,37 +355,37 @@ if __name__ == "__main__":
   };
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex flex-col h-full shadow-lg">
+    <div className="bg-white dark:bg-[#080d1a] border border-stone-200 dark:border-slate-800 rounded-xl overflow-hidden flex flex-col h-full shadow-lg">
       {/* Tab Selectors */}
-      <div className="flex border-b border-slate-800 bg-slate-950 px-4 pt-3 gap-2">
+      <div className="flex border-b border-stone-200 dark:border-slate-800 bg-white dark:bg-[#080d1a] px-4 pt-3 gap-2">
         <button
-          onClick={() => setActiveTab('python')}
+          onClick={() => setActiveTab("python")}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-t-lg font-display text-xs tracking-wide border-b-2 transition-all ${
-            activeTab === 'python'
-              ? 'border-brand-cyan text-brand-cyan bg-slate-900'
-              : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-900/50'
+            activeTab === "python"
+              ? "border-brand-cyan text-brand-cyan bg-white dark:bg-slate-900/80"
+              : "border-transparent text-stone-600 dark:text-slate-400 hover:text-stone-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-slate-900/50"
           }`}
         >
           <Terminal size={14} />
           CUDA Python Core Blueprint
         </button>
         <button
-          onClick={() => setActiveTab('math')}
+          onClick={() => setActiveTab("math")}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-t-lg font-display text-xs tracking-wide border-b-2 transition-all ${
-            activeTab === 'math'
-              ? 'border-brand-cyan text-brand-cyan bg-slate-900'
-              : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-900/50'
+            activeTab === "math"
+              ? "border-brand-cyan text-brand-cyan bg-white dark:bg-slate-900/80"
+              : "border-transparent text-stone-600 dark:text-slate-400 hover:text-stone-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-slate-900/50"
           }`}
         >
           <Cpu size={14} />
           Mathematical Formula Architecture
         </button>
         <button
-          onClick={() => setActiveTab('deploy')}
+          onClick={() => setActiveTab("deploy")}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-t-lg font-display text-xs tracking-wide border-b-2 transition-all ${
-            activeTab === 'deploy'
-              ? 'border-brand-cyan text-brand-cyan bg-slate-900'
-              : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-900/50'
+            activeTab === "deploy"
+              ? "border-brand-cyan text-brand-cyan bg-white dark:bg-slate-900/80"
+              : "border-transparent text-stone-600 dark:text-slate-400 hover:text-stone-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-slate-900/50"
           }`}
         >
           <Zap size={14} />
@@ -392,13 +394,17 @@ if __name__ == "__main__":
       </div>
 
       {/* Tab Contents */}
-      <div className="flex-1 p-5 overflow-y-auto text-xs font-mono leading-relaxed text-slate-300">
-        {activeTab === 'python' && (
+      <div className="flex-1 p-5 overflow-y-auto text-xs font-mono leading-relaxed text-stone-800 dark:text-slate-200">
+        {activeTab === "python" && (
           <div className="h-full flex flex-col gap-4">
-            <div className="flex justify-between items-center bg-slate-950 p-3.5 rounded-lg border border-slate-800">
+            <div className="flex justify-between items-center bg-white dark:bg-[#030712] p-3.5 rounded-lg border border-stone-200 dark:border-slate-800">
               <div>
-                <span className="text-brand-cyan font-bold block">priority_engine.py</span>
-                <span className="text-[10px] text-slate-500 mt-0.5">Production-Ready CUDA / RAPIDS Hydro-risk Engine</span>
+                <span className="text-brand-cyan font-bold block">
+                  priority_engine.py
+                </span>
+                <span className="text-[10px] text-stone-500 dark:text-slate-400 mt-0.5">
+                  Production-Ready CUDA / RAPIDS Hydro-risk Engine
+                </span>
               </div>
               <button
                 onClick={handleCopy}
@@ -414,124 +420,202 @@ if __name__ == "__main__":
                     <Clipboard size={13} />
                     Copy Complete Script
                   </>
-                )}
+                )
+                }
               </button>
             </div>
-            
-            <div className="flex-1 relative bg-slate-950 rounded-lg border border-slate-800 p-4 overflow-x-auto overflow-y-auto max-h-[350px]">
-              <pre className="text-emerald-400 font-mono text-[11px] leading-relaxed">
+
+            <div className="flex-1 relative bg-white dark:bg-[#030712] rounded-lg border border-stone-200 dark:border-slate-800 p-4 overflow-x-auto overflow-y-auto max-h-[350px]">
+              <pre className="text-stone-700 dark:text-slate-300 font-mono text-[11px] leading-relaxed">
                 {pythonCode}
-                <span className="text-slate-500">{"\n# ... [Script truncated in preview. Click 'Copy Complete Script' above to get all 725 lines] ..."}</span>
+                <span className="text-stone-500 dark:text-slate-500">
+                  {
+                    "\n# ... [Script truncated in preview. Click 'Copy Complete Script' above to get all 725 lines] ..."
+                  }
+                </span>
               </pre>
             </div>
 
-            <div className="grid grid-cols-3 gap-3 font-sans text-xs bg-slate-950/40 p-3.5 rounded-lg border border-slate-800/60 mt-2">
+            <div className="grid grid-cols-3 gap-3 font-sans text-xs bg-white dark:bg-[#030712] p-3.5 rounded-lg border border-stone-200 dark:border-slate-800 mt-2">
               <div className="flex gap-2">
-                <div className="text-brand-cyan p-1 bg-brand-cyan/10 rounded h-fit"><Cpu size={14} /></div>
+                <div className="text-brand-cyan p-1 bg-brand-cyan/10 rounded h-fit">
+                  <Cpu size={14} />
+                </div>
                 <div>
-                  <span className="font-semibold text-slate-200 block">RAPIDS Spatial Join</span>
-                  <span className="text-[10px] text-slate-400 mt-0.5">cuSpatial PIP overlays 30k RT boundaries in ~0.8ms vs 350ms CPU loops.</span>
+                  <span className="font-semibold text-stone-900 dark:text-slate-100 block">
+                    RAPIDS Spatial Join
+                  </span>
+                  <span className="text-[10px] text-stone-600 dark:text-slate-400 mt-0.5">
+                    cuSpatial PIP overlays 30k RT boundaries in ~0.8ms vs 350ms
+                    CPU loops.
+                  </span>
                 </div>
               </div>
               <div className="flex gap-2">
-                <div className="text-brand-cyan p-1 bg-brand-cyan/10 rounded h-fit"><Zap size={14} /></div>
+                <div className="text-brand-cyan p-1 bg-brand-cyan/10 rounded h-fit">
+                  <Zap size={14} />
+                </div>
                 <div>
-                  <span className="font-semibold text-slate-200 block">Vectorized CuPy IDW</span>
-                  <span className="text-[10px] text-slate-400 mt-0.5">Bypasses thread-hops by computing 300k station-RT weights via GPU broadcast matrix.</span>
+                  <span className="font-semibold text-stone-900 dark:text-slate-100 block">
+                    Vectorized CuPy IDW
+                  </span>
+                  <span className="text-[10px] text-stone-600 dark:text-slate-400 mt-0.5">
+                    Bypasses thread-hops by computing 300k station-RT weights
+                    via GPU broadcast matrix.
+                  </span>
                 </div>
               </div>
               <div className="flex gap-2">
-                <div className="text-brand-cyan p-1 bg-brand-cyan/10 rounded h-fit"><Download size={14} /></div>
+                <div className="text-brand-cyan p-1 bg-brand-cyan/10 rounded h-fit">
+                  <Download size={14} />
+                </div>
                 <div>
-                  <span className="font-semibold text-slate-200 block">cuDF Sorting Registers</span>
-                  <span className="text-[10px] text-slate-400 mt-0.5">Executes massively parallel bitonic merge-sort on risk-elevation indices in ~1.4ms.</span>
+                  <span className="font-semibold text-stone-900 dark:text-slate-100 block">
+                    cuDF Sorting Registers
+                  </span>
+                  <span className="text-[10px] text-stone-600 dark:text-slate-400 mt-0.5">
+                    Executes massively parallel bitonic merge-sort on
+                    risk-elevation indices in ~1.4ms.
+                  </span>
                 </div>
               </div>
             </div>
           </div>
         )}
 
-        {activeTab === 'math' && (
-          <div className="font-sans flex flex-col gap-5 text-sm leading-relaxed text-slate-300">
+        {activeTab === "math" && (
+          <div className="font-sans flex flex-col gap-5 text-sm leading-relaxed text-stone-800 dark:text-slate-200">
             <div>
-              <h3 className="text-brand-cyan font-display font-medium text-sm tracking-wide">1. GEOSPATIAL POINT-IN-POLYGON (PIP) JOIN</h3>
-              <p className="text-xs text-slate-400 mt-1">
-                To link neighborhood RT centroids $P_i(x, y)$ with their localized water catchment basin boundaries $C_j$, the engine maps ray-casting intersection checks.
-                Using cuSpatial, we compute:
+              <h3 className="text-brand-cyan font-display font-medium text-sm tracking-wide">
+                1. GEOSPATIAL POINT-IN-POLYGON (PIP) JOIN
+              </h3>
+              <p className="text-xs text-stone-600 dark:text-slate-400 mt-1">
+                To link neighborhood RT centroids $P_i(x, y)$ with their
+                localized water catchment basin boundaries $C_j$, the engine
+                maps ray-casting intersection checks. Using cuSpatial, we
+                compute:
               </p>
-              <div className="bg-slate-950 font-mono text-[11px] p-3 rounded-lg border border-slate-800 text-slate-400 mt-2">
-                RT_Centroid_Centres_Vector (30000, 2) &bull; Joined to &bull; Catchment_MultiPolygon_Vertices (12 x V_count, 2)
+              <div className="bg-white dark:bg-[#030712] font-mono text-[11px] p-3 rounded-lg border border-stone-200 dark:border-slate-800 text-stone-600 dark:text-slate-300 mt-2">
+                RT_Centroid_Centres_Vector (30000, 2) &bull; Joined to &bull;
+                Catchment_MultiPolygon_Vertices (12 x V_count, 2)
               </div>
             </div>
 
             <div>
-              <h3 className="text-brand-cyan font-display font-medium text-sm tracking-wide">2. EXTREME VALUE THEORY (EVT) EXCEEDANCE PROBABILITIES</h3>
-              <p className="text-xs text-slate-400 mt-1">
-                Flooding represents extreme tail-events that standard Gaussian assumptions underestimate. We fit a Generalized Extreme Value (GEV) distribution to daily maxima logs over 5 years.
+              <h3 className="text-brand-cyan font-display font-medium text-sm tracking-wide">
+                2. EXTREME VALUE THEORY (EVT) EXCEEDANCE PROBABILITIES
+              </h3>
+              <p className="text-xs text-stone-600 dark:text-slate-400 mt-1">
+                Flooding represents extreme tail-events that standard Gaussian
+                assumptions underestimate. We fit a Generalized Extreme Value
+                (GEV) distribution to daily maxima logs over 5 years.
               </p>
-              <div className="bg-slate-950 font-mono text-xs p-4 rounded-lg border border-slate-800 text-slate-200 text-center mt-2.5">
-                G(x) = exp( - [ 1 + &xi; * ((x - &mu;) / &sigma;) ] ^ (-1 / &xi;) )
-                <div className="text-[10px] text-slate-500 mt-1">
-                  Location (&mu;) = Baseline height &bull; Scale (&sigma;) = Hydrological flashiness &bull; Shape (&xi;) = Frechet extreme risk index (&xi; &gt; 0)
+              <div className="bg-white dark:bg-[#030712] font-mono text-xs p-4 rounded-lg border border-stone-200 dark:border-slate-800 text-stone-900 dark:text-slate-100 text-center mt-2.5">
+                G(x) = exp( - [ 1 + &xi; * ((x - &mu;) / &sigma;) ] ^ (-1 /
+                &xi;) )
+                <div className="text-[10px] text-stone-500 dark:text-slate-400 mt-1">
+                  Location (&mu;) = Baseline height &bull; Scale (&sigma;) =
+                  Hydrological flashiness &bull; Shape (&xi;) = Frechet extreme
+                  risk index (&xi; &gt; 0)
                 </div>
               </div>
-              <p className="text-xs text-slate-400 mt-1.5">
-                The exceedance probability P(X &gt;= x_current) = 1 - G(x_current) measures the likelihood of the sensor surpassing the current live record level.
+              <p className="text-xs text-stone-600 dark:text-slate-400 mt-1.5">
+                The exceedance probability P(X &gt;= x_current) = 1 -
+                G(x_current) measures the likelihood of the sensor surpassing
+                the current live record level.
               </p>
             </div>
 
             <div>
-              <h3 className="text-brand-cyan font-display font-medium text-sm tracking-wide">3. MATRIX INVERSE DISTANCE WEIGHTING (IDW)</h3>
-              <p className="text-xs text-slate-400 mt-1">
-                Sparse weather grid inputs $R_k$ (from BMKG stations) are spatialized continuously. Pairwise Euclidean distances are vectorized:
+              <h3 className="text-brand-cyan font-display font-medium text-sm tracking-wide">
+                3. MATRIX INVERSE DISTANCE WEIGHTING (IDW)
+              </h3>
+              <p className="text-xs text-stone-600 dark:text-slate-400 mt-1">
+                Sparse weather grid inputs $R_k$ (from BMKG stations) are
+                spatialized continuously. Pairwise Euclidean distances are
+                vectorized:
               </p>
-              <div className="bg-slate-950 font-mono text-xs p-4 rounded-lg border border-slate-800 text-slate-200 text-center mt-2">
-                d(P_i, S_k) = &radic;( (x_i - x_k)^2 + (y_i - y_k)^2 ) + &epsilon;
+              <div className="bg-white dark:bg-[#030712] font-mono text-xs p-4 rounded-lg border border-stone-200 dark:border-slate-800 text-stone-900 dark:text-slate-100 text-center mt-2">
+                d(P_i, S_k) = &radic;( (x_i - x_k)^2 + (y_i - y_k)^2 ) +
+                &epsilon;
                 <br />
-                w_ik = d(P_i, S_k)^(-p) &bull; normalized &bull; R_i = &sum;(w_ik * R_k)
+                w_ik = d(P_i, S_k)^(-p) &bull; normalized &bull; R_i =
+                &sum;(w_ik * R_k)
               </div>
             </div>
 
-            <div className="border-t border-slate-800 pt-3">
-              <h3 className="text-brand-cyan font-display font-medium text-sm tracking-wide">4. COMPOSITE DECISION RISK FUSION</h3>
-              <p className="text-xs text-slate-400 mt-1">
-                Finally, a priority index score (R_RT) balances TMA extreme hazard probabilities, localized rainfalls, and digital elevations (DEMNAS):
+            <div className="border-t border-stone-200 dark:border-slate-800 pt-3">
+              <h3 className="text-brand-cyan font-display font-medium text-sm tracking-wide">
+                4. COMPOSITE DECISION RISK FUSION
+              </h3>
+              <p className="text-xs text-stone-600 dark:text-slate-400 mt-1">
+                Finally, a priority index score (R_RT) balances TMA extreme
+                hazard probabilities, localized rainfalls, and digital
+                elevations (DEMNAS):
               </p>
-              <div className="bg-slate-950 font-mono text-xs p-4 rounded-lg border border-slate-800 text-brand-cyan text-center mt-2">
-                R_RT = w1 * P_exceedance + w2 * Rainfall_Normalized + w3 * (1.0 - Elevation_Normalized)
+              <div className="bg-white dark:bg-[#030712] font-mono text-xs p-4 rounded-lg border border-stone-200 dark:border-slate-800 text-brand-cyan text-center mt-2">
+                R_RT = w1 * P_exceedance + w2 * Rainfall_Normalized + w3 * (1.0
+                - Elevation_Normalized)
               </div>
             </div>
           </div>
         )}
 
-        {activeTab === 'deploy' && (
-          <div className="font-sans flex flex-col gap-4 text-sm leading-relaxed text-slate-400">
+        {activeTab === "deploy" && (
+          <div className="font-sans flex flex-col gap-4 text-sm leading-relaxed text-stone-600 dark:text-slate-300">
             <div>
-              <h3 className="text-brand-cyan font-display font-medium text-sm tracking-wide">GCP DEPLOYMENT ENVIRONMENT SETUP</h3>
-              <p className="text-xs text-slate-300 mt-1.5">
-                To execute the accelerated GPU pipeline at scale, provision a Google Cloud Compute Engine or Vertex AI workbench instance fitted with:
+              <h3 className="text-brand-cyan font-display font-medium text-sm tracking-wide">
+                GCP DEPLOYMENT ENVIRONMENT SETUP
+              </h3>
+              <p className="text-xs text-stone-800 dark:text-slate-200 mt-1.5">
+                To execute the accelerated GPU pipeline at scale, provision a
+                Google Cloud Compute Engine or Vertex AI workbench instance
+                fitted with:
               </p>
-              <ul className="list-disc pl-5 text-xs text-slate-400 space-y-1.5 mt-2">
-                <li><strong className="text-slate-200">Machine Type:</strong> `g2-standard-4` (4 vCPUs, 16 GB RAM)</li>
-                <li><strong className="text-slate-200">Accelerator:</strong> 1x NVIDIA L4 Tensor Core GPU (24 GB VRAM)</li>
-                <li><strong className="text-slate-200">Base Image:</strong> Deep Learning VM Image with CUDA 12 pre-installed</li>
+              <ul className="list-disc pl-5 text-xs text-stone-600 dark:text-slate-400 space-y-1.5 mt-2">
+                <li>
+                  <strong className="text-stone-900 dark:text-slate-100">Machine Type:</strong>{" "}
+                  `g2-standard-4` (4 vCPUs, 16 GB RAM)
+                </li>
+                <li>
+                  <strong className="text-stone-900 dark:text-slate-100">Accelerator:</strong> 1x
+                  NVIDIA L4 Tensor Core GPU (24 GB VRAM)
+                </li>
+                <li>
+                  <strong className="text-stone-900 dark:text-slate-100">Base Image:</strong> Deep
+                  Learning VM Image with CUDA 12 pre-installed
+                </li>
               </ul>
             </div>
 
             <div className="mt-2.5">
-              <h4 className="text-slate-200 text-xs font-semibold">1. CONDA / RAPIDS STACK INITIALIZATION</h4>
-              <p className="text-[11px] text-slate-400 mt-1">Deploy rapidsai dependencies for cudf, cuspatial, and cupy via conda-forge:</p>
-              <div className="bg-slate-950 font-mono text-[10.5px] p-4 rounded-lg border border-slate-800 text-emerald-400 mt-1.5">
-                conda create -n rapids-env -c rapidsai -c conda-forge -c nvidia \\
-                <span className="block pl-4">rapids=23.12 python=3.10 cuda-version=12.0 cupy scipy pandas</span>
+              <h4 className="text-stone-900 dark:text-slate-100 text-xs font-semibold">
+                1. CONDA / RAPIDS STACK INITIALIZATION
+              </h4>
+              <p className="text-[11px] text-stone-600 dark:text-slate-400 mt-1">
+                Deploy rapidsai dependencies for cudf, cuspatial, and cupy via
+                conda-forge:
+              </p>
+              <div className="bg-white dark:bg-[#030712] font-mono text-[10.5px] p-4 rounded-lg border border-stone-200 dark:border-slate-800 text-stone-700 dark:text-slate-300 mt-1.5">
+                conda create -n rapids-env -c rapidsai -c conda-forge -c nvidia
+                \\
+                <span className="block pl-4">
+                  rapids=23.12 python=3.10 cuda-version=12.0 cupy scipy pandas
+                </span>
               </div>
             </div>
 
             <div className="mt-1">
-              <h4 className="text-slate-200 text-xs font-semibold">2. SERVICE CRONTAB AUTOMATION</h4>
-              <p className="text-[11px] text-slate-400 mt-1">Configure the crontab to pull the latest TMA and BMKG feeds every minute and rank indices:</p>
-              <div className="bg-slate-950 font-mono text-[10.5px] p-3 rounded-lg border border-slate-800 text-emerald-400 mt-1.5">
-                * * * * * conda run -n rapids-env python3 priority_engine.py --json &gt; /var/log/priority_ranking.json
+              <h4 className="text-stone-900 dark:text-slate-100 text-xs font-semibold">
+                2. SERVICE CRONTAB AUTOMATION
+              </h4>
+              <p className="text-[11px] text-stone-600 dark:text-slate-400 mt-1">
+                Configure the crontab to pull the latest TMA and BMKG feeds
+                every minute and rank indices:
+              </p>
+              <div className="bg-white dark:bg-[#030712] font-mono text-[10.5px] p-3 rounded-lg border border-stone-200 dark:border-slate-800 text-stone-700 dark:text-slate-300 mt-1.5">
+                * * * * * conda run -n rapids-env python3 priority_engine.py
+                --json &gt; /var/log/priority_ranking.json
               </div>
             </div>
           </div>

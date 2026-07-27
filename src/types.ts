@@ -16,9 +16,9 @@ export interface RiverSensor {
   lat: number;
   lon: number;
   water_level_cm: number;
-  mu: number;      // GEV location parameter
-  sigma: number;   // GEV scale parameter
-  xi: number;      // GEV shape parameter
+  mu: number; // GEV location parameter
+  sigma: number; // GEV scale parameter
+  xi: number; // GEV shape parameter
   exceedance_prob: number; // Computed real-time exceedance probability
 }
 
@@ -39,8 +39,10 @@ export interface NeighborhoodRT {
   associated_sensor_id: string;
   interpolated_rainfall_mm_hr: number;
   evt_exceedance_prob: number;
+  population_density: number;
   risk_priority_score: number;
   dispatched?: boolean;
+  evacuation_dispatched?: boolean;
   siren_activated?: boolean;
 }
 
@@ -51,7 +53,7 @@ export interface SimulationPreset {
   rainMultiplier: number;
   coastalTideCm: number;
   stationRainfalls: number[]; // custom rainfall values for BMKG stations
-  sensorSpikes: string[];     // IDs of sensors experiencing extreme spikes
+  sensorSpikes: string[]; // IDs of sensors experiencing extreme spikes
 }
 
 export interface RiskWeights {
@@ -101,4 +103,12 @@ export interface BenchmarkMetrics {
   riskRankingGpuMs: number;
   totalCpuMs: number;
   totalGpuMs: number;
+}
+
+export interface LogisticsAsset {
+  id: string;
+  type: "medical_cache" | "rescue_boat" | "evac_truck";
+  lat: number;
+  lon: number;
+  status: "available" | "en_route" | "deployed";
 }
