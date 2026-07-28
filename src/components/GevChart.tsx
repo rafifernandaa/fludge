@@ -1,13 +1,63 @@
 import React from "react";
-import { RiverSensor } from "../types";
+import { RiverSensor, NeighborhoodRT } from "../types";
 
 interface GevChartProps {
-  sensor: RiverSensor;
+  sensor?: RiverSensor;
+  rt?: NeighborhoodRT;
+  customData?: {
+    name: string;
+    mu: number;
+    sigma: number;
+    xi: number;
+    water_level_cm: number;
+    exceedance_prob: number;
+    subtitle?: string;
+  };
   action?: React.ReactNode;
+  height?: number;
 }
 
-export const GevChart: React.FC<GevChartProps> = ({ sensor, action }) => {
-  const { name, mu, sigma, xi, water_level_cm, exceedance_prob } = sensor;
+export const GevChart: React.FC<GevChartProps> = ({
+  sensor,
+  rt,
+  customData,
+  action,
+  height = 180,
+}) => {
+  // Resolve chart data from sensor, rt, or customData
+  let name = "GEV Analysis";
+  let subtitle = "Generalized Extreme Value Distribution (Fréchet)";
+  let mu = 180;
+  let sigma = 40;
+  let xi = 0.18;
+  let water_level_cm = 210;
+  let exceedance_prob = 0.45;
+
+  if (sensor) {
+    name = sensor.name;
+    mu = sensor.mu;
+    sigma = sensor.sigma;
+    xi = sensor.xi;
+    water_level_cm = sensor.water_level_cm;
+    exceedance_prob = sensor.exceedance_prob;
+    subtitle = `River Sensor Telemetry • Exceedance P: ${(exceedance_prob * 100).toFixed(1)}%`;
+  } else if (rt) {
+    name = `RT Unit ${rt.rt_id} (${rt.kelurahan})`;
+    subtitle = `Neighborhood Hydro Model • Elevation: ${rt.demnas_elevation_m.toFixed(1)}m • Rain: ${rt.interpolated_rainfall_mm_hr.toFixed(1)} mm/h`;
+    mu = 160 + Math.max(0, (5 - rt.demnas_elevation_m)) * 12;
+    sigma = 38 + rt.interpolated_rainfall_mm_hr * 0.15;
+    xi = 0.185;
+    water_level_cm = Math.min(480, 140 + rt.interpolated_rainfall_mm_hr * 2.5 + Math.max(0, (5 - rt.demnas_elevation_m)) * 18);
+    exceedance_prob = rt.evt_exceedance_prob;
+  } else if (customData) {
+    name = customData.name;
+    mu = customData.mu;
+    sigma = customData.sigma;
+    xi = customData.xi;
+    water_level_cm = customData.water_level_cm;
+    exceedance_prob = customData.exceedance_prob;
+    subtitle = customData.subtitle || subtitle;
+  }
 
   // Calculate GEV PDF value g(x) at point x
   const calculateGevPdf = (x: number): number => {
@@ -28,7 +78,6 @@ export const GevChart: React.FC<GevChartProps> = ({ sensor, action }) => {
   };
 
   // Generate 100 sample points along the x-axis for plotting the GEV curve
-  // We sample from mu - 2.5 * sigma up to mu + 6 * sigma to catch the long Frechet tail
   const xMin = mu - 2.5 * sigma;
   const xMax = mu + 6.5 * sigma;
   const step = (xMax - xMin) / 100;
@@ -45,9 +94,9 @@ export const GevChart: React.FC<GevChartProps> = ({ sensor, action }) => {
     points.push({ x: xVal, y: pdfVal });
   }
 
-  // Map coordinate points to SVG viewBox [0, 400] x [0, 200]
+  // Map coordinate points to SVG viewBox
   const width = 450;
-  const height = 180;
+  const svgHeight = height;
   const padding = 35;
 
   const mapX = (xVal: number) => {
@@ -55,8 +104,7 @@ export const GevChart: React.FC<GevChartProps> = ({ sensor, action }) => {
   };
 
   const mapY = (pdfVal: number) => {
-    // Invert Y to put 0 at bottom
-    return height - padding - (pdfVal / maxPdf) * (height - 2 * padding);
+    return svgHeight - padding - (pdfVal / maxPdf) * (svgHeight - 2 * padding);
   };
 
   // Build the SVG path string
@@ -73,39 +121,38 @@ export const GevChart: React.FC<GevChartProps> = ({ sensor, action }) => {
   const currentYVal = calculateGevPdf(water_level_cm);
   const currentY = mapY(currentYVal);
 
-  // Return thresholds
-  // 50-year return level (roughly P = 0.98 quantile)
+  // Return thresholds: 50-year return level (roughly P = 0.98 quantile)
   const returnLevel50 =
     mu + (sigma * (Math.pow(-Math.log(0.98), -xi) - 1.0)) / xi;
   const xReturn50 = mapX(returnLevel50);
 
   return (
-    <div className="bg-white dark:bg-stone-900/80 border border-stone-200 dark:border-stone-700 p-4 rounded-xl flex flex-col font-mono text-xs shadow-md">
+    <div className="bg-white dark:bg-stone-900/80 border border-stone-200 dark:border-stone-700 p-4 rounded-2xl flex flex-col font-mono text-xs shadow-md">
       <div className="flex justify-between items-start border-b border-stone-200 dark:border-stone-700 pb-2 mb-3">
         <div className="min-w-0 flex-1">
-          <h4 className="font-display font-medium text-stone-900 dark:text-stone-50 tracking-wide text-xs truncate">
+          <h4 className="font-display font-bold text-stone-900 dark:text-stone-50 tracking-wide text-xs truncate">
             {name}
           </h4>
-          <p className="text-[10px] text-stone-500 dark:text-stone-400 dark:text-stone-500 mt-0.5 truncate">
-            GEV Extreme Value Probability Density Function (PDF)
+          <p className="text-[10px] text-stone-500 dark:text-stone-400 mt-0.5 truncate">
+            {subtitle}
           </p>
         </div>
         <div className="text-right flex flex-col gap-1 items-end shrink-0 pl-2">
           {action ? (
             action
           ) : (
-            <span className="text-[10px] bg-stone-200 dark:bg-stone-700 text-brand-cyan px-2 py-0.5 rounded-full uppercase border border-stone-300 dark:border-stone-600">
-              Fitted GEV Baseline
+            <span className="text-[10px] bg-stone-100 dark:bg-stone-800 text-fuchsia-700 dark:text-cyan-400 px-2 py-0.5 rounded-full uppercase border border-stone-200 dark:border-stone-700 font-bold">
+              Fitted GEV Curve
             </span>
           )}
         </div>
       </div>
 
-      <div className="relative flex-1 min-h-[180px] bg-stone-50 dark:bg-stone-900/60 rounded-lg p-2 border border-stone-200 dark:border-stone-700/40">
+      <div className="relative flex-1 min-h-[160px] bg-stone-50 dark:bg-stone-900/60 rounded-xl p-2 border border-stone-200 dark:border-stone-700/40">
         <svg
           width="100%"
           height="100%"
-          viewBox={`0 0 ${width} ${height}`}
+          viewBox={`0 0 ${width} ${svgHeight}`}
           preserveAspectRatio="xMidYMid meet"
         >
           {/* Subtle horizontal grid lines */}
@@ -141,7 +188,7 @@ export const GevChart: React.FC<GevChartProps> = ({ sensor, action }) => {
                 x1={xReturn50}
                 y1={padding - 5}
                 x2={xReturn50}
-                y2={height - padding}
+                y2={svgHeight - padding}
                 stroke="#ef4444"
                 strokeWidth="1"
                 strokeDasharray="4 4"
@@ -163,7 +210,7 @@ export const GevChart: React.FC<GevChartProps> = ({ sensor, action }) => {
           <path
             d={`${pathD} L ${mapX(xMax)} ${mapY(0)} L ${mapX(xMin)} ${mapY(0)} Z`}
             fill="url(#gevGrad)"
-            opacity="0.15"
+            opacity="0.18"
           />
 
           {/* The plotted GEV Probability Density curve line */}
@@ -178,7 +225,7 @@ export const GevChart: React.FC<GevChartProps> = ({ sensor, action }) => {
           {/* X Axis ticks */}
           <text
             x={mapX(mu)}
-            y={height - padding + 14}
+            y={svgHeight - padding + 14}
             className="fill-stone-500 dark:fill-stone-400"
             fontSize="8"
             textAnchor="middle"
@@ -187,7 +234,7 @@ export const GevChart: React.FC<GevChartProps> = ({ sensor, action }) => {
           </text>
           <text
             x={mapX(mu + 2 * sigma)}
-            y={height - padding + 14}
+            y={svgHeight - padding + 14}
             className="fill-stone-500 dark:fill-stone-400"
             fontSize="8"
             textAnchor="middle"
@@ -196,7 +243,7 @@ export const GevChart: React.FC<GevChartProps> = ({ sensor, action }) => {
           </text>
           <text
             x={mapX(mu + 4 * sigma)}
-            y={height - padding + 14}
+            y={svgHeight - padding + 14}
             className="fill-stone-500 dark:fill-stone-400"
             fontSize="8"
             textAnchor="middle"
@@ -214,7 +261,7 @@ export const GevChart: React.FC<GevChartProps> = ({ sensor, action }) => {
                    .join(" ")} 
                  L ${mapX(xMax)} ${mapY(0)} L ${currentX} ${mapY(0)} Z`}
               fill="#ef4444"
-              opacity="0.12"
+              opacity="0.2"
             />
           )}
 
@@ -225,7 +272,7 @@ export const GevChart: React.FC<GevChartProps> = ({ sensor, action }) => {
                 x1={currentX}
                 y1={currentY}
                 x2={currentX}
-                y2={height - padding}
+                y2={svgHeight - padding}
                 stroke="#22d3ee"
                 strokeWidth="1.5"
                 strokeDasharray="2 2"
@@ -254,12 +301,12 @@ export const GevChart: React.FC<GevChartProps> = ({ sensor, action }) => {
           {/* Definitions */}
           <defs>
             <linearGradient id="gevGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#06b6d4" />
+              <stop offset="0%" stopColor="#c026d3" />
               <stop offset="100%" stopColor="#1c1917" />
             </linearGradient>
             <linearGradient id="curveGrad" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor="#06b6d4" />
-              <stop offset="50%" stopColor="#06b6d4" />
+              <stop offset="0%" stopColor="#2563eb" />
+              <stop offset="50%" stopColor="#c026d3" />
               <stop offset="100%" stopColor="#ef4444" />
             </linearGradient>
           </defs>
@@ -267,49 +314,49 @@ export const GevChart: React.FC<GevChartProps> = ({ sensor, action }) => {
       </div>
 
       {/* Parameter HUD Panel */}
-      <div className="grid grid-cols-4 gap-2 text-[10px] mt-2 bg-stone-50 dark:bg-stone-900/60 p-2.5 rounded-lg border border-stone-200 dark:border-stone-700/60">
+      <div className="grid grid-cols-4 gap-2 text-[10px] mt-2 bg-stone-50 dark:bg-stone-900/60 p-2.5 rounded-xl border border-stone-200 dark:border-stone-700/60">
         <div>
-          <span className="text-stone-500 dark:text-stone-400 dark:text-stone-500 block">
+          <span className="text-stone-500 dark:text-stone-400 block font-semibold">
             LOCATION (&mu;)
           </span>
-          <span className="font-semibold text-stone-800 dark:text-stone-100 font-mono">
-            {mu.toFixed(2)}
+          <span className="font-bold text-stone-800 dark:text-stone-100 font-mono">
+            {mu.toFixed(1)} cm
           </span>
         </div>
         <div>
-          <span className="text-stone-500 dark:text-stone-400 dark:text-stone-500 block">
+          <span className="text-stone-500 dark:text-stone-400 block font-semibold">
             SCALE (&sigma;)
           </span>
-          <span className="font-semibold text-stone-800 dark:text-stone-100 font-mono">
-            {sigma.toFixed(2)}
+          <span className="font-bold text-stone-800 dark:text-stone-100 font-mono">
+            {sigma.toFixed(1)}
           </span>
         </div>
         <div>
-          <span className="text-stone-500 dark:text-stone-400 dark:text-stone-500 block">
+          <span className="text-stone-500 dark:text-stone-400 block font-semibold">
             SHAPE (&xi;)
           </span>
-          <span className="font-semibold text-brand-orange font-mono">
-            +{xi.toFixed(4)}{" "}
-            <span className="text-[8px] text-stone-500 dark:text-stone-400 dark:text-stone-500">
+          <span className="font-bold text-amber-600 dark:text-amber-400 font-mono">
+            +{xi.toFixed(3)}{" "}
+            <span className="text-[8px] text-stone-400 dark:text-stone-500">
               (Fréchet)
             </span>
           </span>
         </div>
         <div>
-          <span className="text-stone-500 dark:text-stone-400 dark:text-stone-500 block">
+          <span className="text-stone-500 dark:text-stone-400 block font-semibold">
             EXCEEDANCE P
           </span>
-          <span className="font-bold text-brand-red font-mono">
-            {(exceedance_prob * 100).toFixed(2)}%
+          <span className="font-bold text-rose-600 dark:text-rose-400 font-mono">
+            {(exceedance_prob * 100).toFixed(1)}%
           </span>
         </div>
       </div>
 
       {/* GEV CDF Formula Banner */}
-      <div className="text-[9px] text-stone-500 dark:text-stone-400 dark:text-stone-500 text-center mt-2.5 border-t border-stone-200 dark:border-stone-700/40 pt-1.5 font-mono">
-        CDF: G(x) = exp( - [1 + &xi;((x - &mu;)/&sigma;)]^(-1/&xi;) ) &bull;
-        P_exceed = 1 - G(x_live)
+      <div className="text-[9px] text-stone-500 dark:text-stone-400 text-center mt-2.5 border-t border-stone-200 dark:border-stone-700/40 pt-1.5 font-mono">
+        GEV Density: f(x) = (1/&sigma;) t(x)^(&xi;+1) e^(-t(x)) where t(x) = [1 + &xi;((x - &mu;)/&sigma;)]^(-1/&xi;)
       </div>
     </div>
   );
 };
+

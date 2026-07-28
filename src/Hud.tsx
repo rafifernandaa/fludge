@@ -29,6 +29,7 @@ import {
   Mic,
   MicOff,
   Map,
+  Table,
   SlidersHorizontal,
   BarChart3,
   Truck,
@@ -37,7 +38,12 @@ import {
   Cloud,
   FileText,
   UserCheck,
+  User,
   Zap,
+  MapPin,
+  BrainCircuit,
+  Bot,
+  Video,
 } from "lucide-react";
 
 import { toast } from "sonner";
@@ -48,9 +54,13 @@ import { generateJakartaScaffolding, SIMULATION_PRESETS } from "./data";
 import { runHydrologicalPipeline } from "./math_engine";
 import { MapCanvas } from "./components/MapCanvas";
 import { GevChart } from "./components/GevChart";
+import { PlaceExplanationCard } from "./components/PlaceExplanationCard";
 import { GroundTruthModal } from "./components/GroundTruthModal";
 import { ConfirmationModal } from "./components/ConfirmationModal";
 import { CodeExplorer } from "./components/CodeExplorer";
+import { RtMasterTable } from "./components/RtMasterTable";
+import { MultiAgentCenter } from "./components/MultiAgentCenter";
+import { UserProfile } from "./components/UserProfile";
 import { calculateEvacuationRoute } from "./dijkstra";
 import {
   NeighborhoodRT,
@@ -154,7 +164,7 @@ export default function Hud({
 }) {
   // Sidebar Tabs State
   const [activeTab, setActiveTab] = useState<
-    "map" | "simulation" | "gev" | "dispatch" | "ai_advisor" | "code_engine"
+    "map" | "rt_table" | "simulation" | "gev" | "dispatch" | "ai_advisor" | "multi_agent" | "code_engine" | "profile"
   >("map");
 
   // Default theme set to Image 2 crisp architectural porcelain mode
@@ -711,6 +721,16 @@ export default function Hud({
           </div>
 
           <button
+            onClick={() => setShowGroundTruth(true)}
+            title="Open Citizen Reports & CCTV Cameras"
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-xl bg-fuchsia-600 hover:bg-fuchsia-500 dark:bg-cyan-500 dark:hover:bg-cyan-400 text-white dark:text-slate-950 font-bold text-xs shadow-sm transition-all cursor-pointer"
+          >
+            <Video className="w-3.5 h-3.5" />
+            <span>CCTV & Citizen Intel</span>
+            <span className="w-2 h-2 rounded-full bg-rose-400 animate-ping ml-0.5" />
+          </button>
+
+          <button
             onClick={() => setIsListening(!isListening)}
             title={isListening ? "Listening active" : "Enable voice commands"}
             className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
@@ -759,6 +779,19 @@ export default function Hud({
             }`}
           >
             <Map className="w-4 h-4" />
+          </button>
+
+          {/* Tab 2: RT Directory Table */}
+          <button
+            onClick={() => setActiveTab("rt_table")}
+            title="RT Master Directory Table (30,000 RT Units)"
+            className={`p-2 rounded-xl transition-all cursor-pointer relative ${
+              activeTab === "rt_table"
+                ? "bg-stone-900 text-white dark:bg-fuchsia-950/60 dark:text-fuchsia-400 dark:border-fuchsia-500/40 shadow-sm"
+                : "hover:bg-stone-100 dark:hover:bg-slate-800/50 hover:text-stone-900"
+            }`}
+          >
+            <Table className="w-4 h-4" />
           </button>
 
           {/* Tab 2: Simulation */}
@@ -813,7 +846,20 @@ export default function Hud({
             <Sparkles className="w-4 h-4" />
           </button>
 
-          {/* Tab 6: Code Engine */}
+          {/* Tab 6: Autonomous Multi-Agent Command Center */}
+          <button
+            onClick={() => setActiveTab("multi_agent")}
+            title="Autonomous Multi-Agent Command Center"
+            className={`p-2 rounded-xl transition-all cursor-pointer relative ${
+              activeTab === "multi_agent"
+                ? "bg-stone-900 text-white dark:bg-fuchsia-950/60 dark:text-fuchsia-400 dark:border-fuchsia-500/40 shadow-sm"
+                : "hover:bg-stone-100 dark:hover:bg-slate-800/50 hover:text-stone-900"
+            }`}
+          >
+            <BrainCircuit className="w-4 h-4" />
+          </button>
+
+          {/* Tab 7: Code Engine */}
           <button
             onClick={() => setActiveTab("code_engine")}
             title="CUDA Code Core & Pipeline"
@@ -825,6 +871,31 @@ export default function Hud({
           >
             <Code2 className="w-4 h-4" />
           </button>
+
+          {/* CCTV & Citizen Intel Quick Modal Launcher */}
+          <button
+            onClick={() => setShowGroundTruth(true)}
+            title="Live CCTV Surveillance & Citizen Photo/Video Feeds"
+            className="p-2 rounded-xl transition-all cursor-pointer relative hover:bg-stone-100 dark:hover:bg-slate-800/50 hover:text-stone-900"
+          >
+            <Camera className="w-4 h-4 text-fuchsia-600 dark:text-cyan-400" />
+            <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+          </button>
+
+          {/* User Profile Tab (Bottom-Left Corner) */}
+          <div className="mt-auto pt-2 border-t border-stone-200 dark:border-slate-800/80 w-full flex flex-col items-center">
+            <button
+              onClick={() => setActiveTab("profile")}
+              title="Commander User Profile & BPBD Credentials"
+              className={`p-2 rounded-xl transition-all cursor-pointer relative ${
+                activeTab === "profile"
+                  ? "bg-stone-900 text-white dark:bg-fuchsia-950/60 dark:text-fuchsia-400 dark:border-fuchsia-500/40 shadow-sm"
+                  : "hover:bg-stone-100 dark:hover:bg-slate-800/50 hover:text-stone-900"
+              }`}
+            >
+              <User className="w-4 h-4" />
+            </button>
+          </div>
         </aside>
 
         {/* TAB CONTENT WORKSPACE PANELS */}
@@ -883,107 +954,47 @@ export default function Hud({
                   </div>
 
                   {selectedRt ? (
-                  <div className="space-y-4 font-mono text-xs">
-                    <div className="p-3 rounded-2xl bg-stone-50 dark:bg-slate-900 border border-stone-200 dark:border-slate-800 space-y-2">
-                      <div className="flex justify-between text-stone-600 dark:text-slate-400">
-                        <span>Kelurahan:</span>
-                        <span className="font-bold text-stone-900 dark:text-white">
-                          {selectedRt.kelurahan}
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-stone-600 dark:text-slate-400">
-                        <span>DEMNAS Elevation:</span>
-                        <span className="font-bold text-amber-700 dark:text-amber-400">
-                          {selectedRt.demnas_elevation_m.toFixed(1)} m
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-stone-600 dark:text-slate-400">
-                        <span>Interpolated Rain:</span>
-                        <span className="font-bold text-fuchsia-700 dark:text-cyan-400">
-                          {selectedRt.interpolated_rainfall_mm_hr.toFixed(1)} mm/hr
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-stone-600 dark:text-slate-400">
-                        <span>Exceedance Prob:</span>
-                        <span className="font-bold text-rose-700 dark:text-rose-400">
-                          {(selectedRt.evt_exceedance_prob * 100).toFixed(1)}%
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-stone-600 dark:text-slate-400 border-t border-stone-200 dark:border-slate-800 pt-2">
-                        <span>Composite Score:</span>
-                        <span className="font-black text-rose-600 dark:text-rose-500 text-sm">
-                          {(selectedRt.risk_priority_score * 100).toFixed(1)}%
-                        </span>
-                      </div>
+                    <div className="space-y-4">
+                      <PlaceExplanationCard
+                        rt={selectedRt}
+                        onNavigateToMap={() => {
+                          setActiveTab("map");
+                        }}
+                        onNavigateToDispatch={() => {
+                          setActiveTab("dispatch");
+                        }}
+                        onToggleSiren={handleToggleSiren}
+                        onOpenGroundTruth={() => setShowGroundTruth(true)}
+                        onClose={() => setSelectedRt(null)}
+                      />
+
+                      {activeRoute && (
+                        <div className="p-3 rounded-2xl bg-stone-50 dark:bg-slate-900 border border-stone-200 dark:border-slate-800 space-y-2 font-mono text-xs">
+                          <div className="text-[10px] font-bold text-fuchsia-700 dark:text-cyan-400 uppercase flex items-center gap-1.5">
+                            <Compass className="w-3.5 h-3.5" /> Dijkstra Shortest Safe Corridor
+                          </div>
+                          <div className="flex justify-between text-stone-700 dark:text-slate-300 text-[11px]">
+                            <span>Shelter Haven:</span>
+                            <span className="font-bold text-emerald-700 dark:text-emerald-400">
+                              {activeRoute.musterPoint.name}
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-stone-700 dark:text-slate-300 text-[11px]">
+                            <span>Distance:</span>
+                            <span className="font-bold text-stone-900 dark:text-cyan-300">
+                              {activeRoute.totalDistanceKm.toFixed(2)} km
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-stone-700 dark:text-slate-300 text-[11px]">
+                            <span>Safety Score:</span>
+                            <span className="font-bold text-emerald-700 dark:text-emerald-400">
+                              {activeRoute.safetyScore}% Safe
+                            </span>
+                          </div>
+                        </div>
+                      )}
                     </div>
-
-                    <div className="space-y-2">
-                      <button
-                        onClick={() => handleDispatchPump(selectedRt.rt_id)}
-                        className={`w-full py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 border transition-all ${
-                          selectedRt.dispatched
-                            ? "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-400"
-                            : "bg-white dark:bg-slate-900 border-stone-200 dark:border-slate-800 text-stone-800 dark:text-slate-200 hover:bg-stone-50"
-                        }`}
-                      >
-                        <Check className="w-4 h-4" />
-                        {selectedRt.dispatched ? "Pump Dispatched" : "Dispatch Mobile Pump"}
-                      </button>
-
-                      <button
-                        onClick={() => handleToggleSiren(selectedRt.rt_id)}
-                        className={`w-full py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 border transition-all ${
-                          selectedRt.siren_activated
-                            ? "bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-500/20 dark:text-rose-400 animate-pulse"
-                            : "bg-white dark:bg-slate-900 border-stone-200 dark:border-slate-800 text-stone-800 dark:text-slate-200 hover:bg-stone-50"
-                        }`}
-                      >
-                        <AlertTriangle className="w-4 h-4" />
-                        {selectedRt.siren_activated ? "Siren Active" : "Trigger Emergency Siren"}
-                      </button>
-
-                      <button
-                        onClick={() => handleToggleEvacuation(selectedRt.rt_id)}
-                        className={`w-full py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 border transition-all ${
-                          selectedRt.evacuation_dispatched
-                            ? "bg-stone-900 text-white dark:bg-cyan-500 dark:text-slate-950 shadow-md"
-                            : "bg-fuchsia-50 text-fuchsia-800 border-fuchsia-200 dark:bg-cyan-950/60 dark:text-cyan-400 hover:bg-fuchsia-100"
-                        }`}
-                      >
-                        <Layers className="w-4 h-4" />
-                        {selectedRt.evacuation_dispatched
-                          ? "EVACUATION TEAM DEPLOYED"
-                          : "DISPATCH EVACUATION TEAM"}
-                      </button>
-                    </div>
-
-                    {activeRoute && (
-                      <div className="p-3 rounded-2xl bg-stone-50 dark:bg-slate-900 border border-stone-200 dark:border-slate-800 space-y-2">
-                        <div className="text-[10px] font-bold text-fuchsia-700 dark:text-cyan-400 uppercase">
-                          Dijkstra Shortest Safe Corridor
-                        </div>
-                        <div className="flex justify-between text-stone-700 dark:text-slate-300 text-[11px]">
-                          <span>Shelter Haven:</span>
-                          <span className="font-bold text-emerald-700 dark:text-emerald-400">
-                            {activeRoute.musterPoint.name}
-                          </span>
-                        </div>
-                        <div className="flex justify-between text-stone-700 dark:text-slate-300 text-[11px]">
-                          <span>Distance:</span>
-                          <span className="font-bold text-stone-900 dark:text-cyan-300">
-                            {activeRoute.totalDistanceKm.toFixed(2)} km
-                          </span>
-                        </div>
-                        <div className="flex justify-between text-stone-700 dark:text-slate-300 text-[11px]">
-                          <span>Safety Score:</span>
-                          <span className="font-bold text-emerald-700 dark:text-emerald-400">
-                            {activeRoute.safetyScore}% Safe
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ) : (
+                  ) : (
                   <div className="text-center py-12 text-stone-500 font-mono text-xs space-y-2">
                     <Map className="w-8 h-8 mx-auto text-stone-400" />
                     <p>Click any RT sector on the map to inspect elevation, rainfall, and route options.</p>
@@ -994,7 +1005,38 @@ export default function Hud({
             </div>
           )}
 
-          {/* TAB 2: HYDRO SIMULATION & RISK WEIGHTS */}
+          {/* TAB 2: RT MASTER DIRECTORY TABLE */}
+          {activeTab === "rt_table" && (
+            <RtMasterTable
+              rankedRts={rankedRts}
+              selectedRt={selectedRt}
+              onSelectRt={(rt) => setSelectedRt(rt)}
+              onNavigateToMap={(rt) => {
+                setSelectedRt(rt);
+                setActiveTab("map");
+                toast.success(`Focused RT ${rt.rt_id} (${rt.kelurahan}) on GIS Command Map`);
+              }}
+              onNavigateToDispatch={(rt) => {
+                setSelectedRt(rt);
+                setActiveTab("dispatch");
+                toast.info(`Opened Evacuation Roster for RT ${rt.rt_id}`);
+              }}
+              onToggleSiren={(rtId) => {
+                setSirensActivated((prev) => {
+                  const nextState = !prev[rtId];
+                  toast(
+                    nextState
+                      ? `🚨 Local Siren Activated for RT ${rtId}`
+                      : `Siren Deactivated for RT ${rtId}`
+                  );
+                  return { ...prev, [rtId]: nextState };
+                });
+              }}
+              isDarkMode={isDarkMode}
+            />
+          )}
+
+          {/* TAB 3: HYDRO SIMULATION & RISK WEIGHTS */}
           {activeTab === "simulation" && (
             <div className="flex-1 p-6 overflow-y-auto max-w-5xl mx-auto w-full space-y-6">
               <div className="flex items-center justify-between border-b pb-4 border-stone-200 dark:border-slate-800">
@@ -1139,41 +1181,153 @@ export default function Hud({
 
           {/* TAB 3: GEV PROBABILITY INSPECTOR */}
           {activeTab === "gev" && (
-            <div className="flex-1 p-6 overflow-y-auto max-w-5xl mx-auto w-full space-y-6">
-              <div className="border-b pb-4 border-stone-200 dark:border-slate-800">
-                <h2 className="text-2xl font-bold font-mono text-stone-900 dark:text-white">
-                  GEV Probability Inspector & Hydrographs
-                </h2>
-                <p className="text-xs text-stone-500 dark:text-slate-400 mt-1">
-                  Generalized Extreme Value distribution fitting across major Jakarta river telemetry sensors.
-                </p>
+            <div className="flex-1 p-4 lg:p-6 overflow-y-auto max-w-7xl mx-auto w-full space-y-6">
+              {/* Header */}
+              <div className="border-b pb-4 border-stone-200 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-xl md:text-2xl font-bold font-mono text-stone-900 dark:text-white flex items-center gap-2">
+                    <Activity className="w-6 h-6 text-fuchsia-600 dark:text-cyan-400" />
+                    GEV Extreme Value Probability Inspector
+                  </h2>
+                  <p className="text-xs text-stone-500 dark:text-slate-400 mt-1 font-mono">
+                    Generalized Extreme Value (Fréchet) fitting across major river gates and priority neighborhood RT places.
+                  </p>
+                </div>
               </div>
 
-              <div className="flex flex-wrap gap-3">
-                {computedSensors.map((s) => (
-                  <button
-                    key={s.sensor_id}
-                    onClick={() => setSelectedSensorId(s.sensor_id)}
-                    className={`px-4 py-2 rounded-xl text-xs font-mono font-bold border transition-all ${
-                      selectedSensorId === s.sensor_id
-                        ? "bg-stone-900 text-white dark:bg-cyan-400 dark:text-slate-950 border-stone-900"
-                        : "bg-white dark:bg-[#080d1a] border-stone-200 dark:border-slate-800 text-stone-700 dark:text-slate-300 hover:bg-stone-50 dark:hover:bg-slate-900"
-                    }`}
-                  >
-                    {s.name} ({s.water_level_cm.toFixed(0)}cm)
-                  </button>
-                ))}
-              </div>
+              {/* Side-by-Side Grid Layout */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start font-mono text-xs">
+                {/* Left Column: Selectors & Place Directory */}
+                <div className="lg:col-span-5 space-y-5">
+                  {/* River Telemetry Gates Panel */}
+                  <div className="bg-white dark:bg-[#080d1a] border border-stone-200 dark:border-slate-800 p-4 rounded-3xl shadow-sm space-y-3">
+                    <div className="flex items-center justify-between border-b pb-2.5 border-stone-100 dark:border-slate-800">
+                      <span className="font-bold text-stone-900 dark:text-white uppercase tracking-wider text-xs flex items-center gap-1.5">
+                        <Radio className="w-4 h-4 text-fuchsia-600 dark:text-cyan-400" />
+                        River Telemetry Gates ({computedSensors.length})
+                      </span>
+                      <span className="text-[10px] text-stone-400">Live Sensors</span>
+                    </div>
 
-              <div className="bg-white dark:bg-[#080d1a] border border-stone-200 dark:border-slate-800 p-6 rounded-3xl shadow-md">
-                {selectedSensorId && (
-                  <GevChart
-                    sensor={
-                      computedSensors.find((s) => s.sensor_id === selectedSensorId) ||
-                      computedSensors[0]
-                    }
-                  />
-                )}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {computedSensors.map((s) => {
+                        const isSelected = selectedSensorId === s.sensor_id && !selectedRt;
+                        return (
+                          <button
+                            key={s.sensor_id}
+                            onClick={() => {
+                              setSelectedSensorId(s.sensor_id);
+                              setSelectedRt(null);
+                            }}
+                            className={`p-2.5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-1 ${
+                              isSelected
+                                ? "bg-stone-900 text-white dark:bg-cyan-500 dark:text-slate-950 border-stone-900 dark:border-cyan-400 shadow-md font-bold"
+                                : "bg-stone-50 dark:bg-slate-900/60 border-stone-200 dark:border-slate-800 text-stone-800 dark:text-slate-200 hover:bg-stone-100 dark:hover:bg-slate-800"
+                            }`}
+                          >
+                            <span className="text-xs truncate font-semibold">{s.name}</span>
+                            <div className="flex items-center justify-between text-[10px] opacity-90 mt-0.5">
+                              <span>Level: {s.water_level_cm.toFixed(0)} cm</span>
+                              <span
+                                className={`px-1.5 py-0.2 rounded font-bold ${
+                                  s.exceedance_prob >= 0.5
+                                    ? "bg-rose-500 text-white"
+                                    : "bg-emerald-500 text-white"
+                                }`}
+                              >
+                                {(s.exceedance_prob * 100).toFixed(0)}% P
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Priority Neighborhood Places List */}
+                  <div className="bg-white dark:bg-[#080d1a] border border-stone-200 dark:border-slate-800 p-4 rounded-3xl shadow-sm space-y-3">
+                    <div className="flex items-center justify-between border-b pb-2.5 border-stone-100 dark:border-slate-800">
+                      <span className="font-bold text-stone-900 dark:text-white uppercase tracking-wider text-xs flex items-center gap-1.5">
+                        <MapPin className="w-4 h-4 text-fuchsia-600 dark:text-cyan-400" />
+                        Priority At-Risk Neighborhoods
+                      </span>
+                      <span className="text-[10px] text-stone-400">Click to Inspect</span>
+                    </div>
+
+                    <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
+                      {rankedRts.slice(0, 15).map((rt, idx) => {
+                        const isSelected = selectedRt?.rt_id === rt.rt_id;
+                        const scorePct = (rt.risk_priority_score * 100).toFixed(1);
+
+                        return (
+                          <div
+                            key={rt.rt_id}
+                            onClick={() => setSelectedRt(rt)}
+                            className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                              isSelected
+                                ? "bg-fuchsia-50 dark:bg-cyan-950/50 border-fuchsia-400 dark:border-cyan-400 shadow-sm"
+                                : "bg-stone-50/80 dark:bg-slate-900/40 border-stone-200 dark:border-slate-800/80 hover:bg-stone-100 dark:hover:bg-slate-900"
+                            }`}
+                          >
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-stone-900 dark:text-white truncate">
+                                  RT {rt.rt_id}
+                                </span>
+                                <span className="text-[10px] text-stone-500 dark:text-slate-400 truncate">
+                                  ({rt.kelurahan})
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-3 text-[10px] text-stone-500 dark:text-slate-400 mt-1">
+                                <span>Elev: {rt.demnas_elevation_m.toFixed(1)}m</span>
+                                <span>Rain: {rt.interpolated_rainfall_mm_hr.toFixed(1)} mm/h</span>
+                              </div>
+                            </div>
+
+                            <div className="text-right shrink-0">
+                              <span
+                                className={`text-xs font-bold px-2 py-0.5 rounded-full border ${
+                                  rt.risk_priority_score >= 0.75
+                                    ? "bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-800"
+                                    : rt.risk_priority_score >= 0.5
+                                    ? "bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-800"
+                                    : "bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800"
+                                }`}
+                              >
+                                {scorePct}%
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* GEV Model Scientific Note */}
+                  <div className="p-3.5 rounded-2xl bg-stone-100 dark:bg-slate-900/60 border border-stone-200 dark:border-slate-800 text-[11px] text-stone-600 dark:text-slate-400 leading-relaxed font-sans">
+                    <strong>Statistical Methodology:</strong> Parameters (&mu;, &sigma;, &xi;) are fitted using Maximum Likelihood Estimation (MLE) on BMKG annual maximum precipitation and telemetry records. Heavy-tailed Fréchet dynamics ($\xi &gt; 0$) account for climate extremes.
+                  </div>
+                </div>
+
+                {/* Right Column: Detailed Explanation & Hydrograph Panel */}
+                <div className="lg:col-span-7">
+                  {selectedRt ? (
+                    <PlaceExplanationCard
+                      rt={selectedRt}
+                      onNavigateToMap={() => setActiveTab("map")}
+                      onNavigateToDispatch={() => setActiveTab("dispatch")}
+                      onToggleSiren={handleToggleSiren}
+                      onClose={() => setSelectedRt(null)}
+                    />
+                  ) : (
+                    <PlaceExplanationCard
+                      sensor={
+                        computedSensors.find((s) => s.sensor_id === selectedSensorId) ||
+                        computedSensors[0]
+                      }
+                    />
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -1317,7 +1471,21 @@ export default function Hud({
             </div>
           )}
 
-          {/* TAB 6: ENGINE CODE & DATA PIPELINE */}
+          {/* TAB 6: AUTONOMOUS MULTI-AGENT COMMAND CENTER */}
+          {activeTab === "multi_agent" && (
+            <MultiAgentCenter
+              rankedRts={rankedRts}
+              sensors={computedSensors}
+              selectedRt={selectedRt}
+              onSelectRt={setSelectedRt}
+              onDispatchPump={handleDispatchPump}
+              onToggleSiren={handleToggleSiren}
+              onToggleEvacuation={handleToggleEvacuation}
+              onNavigateToTab={(tab) => setActiveTab(tab as any)}
+            />
+          )}
+
+          {/* TAB 7: ENGINE CODE & DATA PIPELINE */}
           {activeTab === "code_engine" && (
             <div className="flex-1 p-6 overflow-y-auto max-w-5xl mx-auto w-full space-y-6">
               <div className="border-b pb-4 border-stone-200 dark:border-slate-800">
@@ -1338,17 +1506,22 @@ export default function Hud({
               </div>
             </div>
           )}
+
+          {/* TAB 8: USER PROFILE & COMMANDER CREDENTIALS */}
+          {activeTab === "profile" && (
+            <UserProfile isDarkMode={isDarkMode} />
+          )}
         </main>
       </div>
 
-      {showGroundTruth && selectedSensorId && (
+      {showGroundTruth && (
         <GroundTruthModal
-          isOpen={showGroundTruth}
           onClose={() => setShowGroundTruth(false)}
           sensor={
             computedSensors.find((s) => s.sensor_id === selectedSensorId) ||
             computedSensors[0]
           }
+          rt={selectedRt}
         />
       )}
     </div>
