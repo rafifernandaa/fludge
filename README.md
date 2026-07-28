@@ -1,6 +1,6 @@
 # 🌊 FLUDGE (Flood-Rescue Command HUD)
 
-### **NVIDIA RAPIDS GPU-Accelerated GIS + Gemini AI Flash-Flood Tactical Dispatch HUD**
+### **NVIDIA RAPIDS GPU-Accelerated GIS + Multi-Agent Orchestrator + Gemini AI Flash-Flood Tactical Dispatch HUD**
 
 _Built for BPBD DKI Jakarta Flash-Flood Command Center (Asia-Pacific Gen AI Academy)_
 
@@ -15,21 +15,64 @@ Jakarta's complex urban terrain consists of over **30,000 Neighborhood Sectors (
 **FLUDGE solves this critical bottleneck by combining:**
 
 1. **NVIDIA RAPIDS (cuDF)**: Massively parallelized GPU-accelerated dataframes to perform Point-in-Polygon (PiP) checks, topography calculations, and live rainfall IDW interpolation across 30,000+ RTs in **less than 4.5 milliseconds** (a **5,000x latency reduction**).
-2. **Google Cloud Platform (GCP)**: Scalable telemetry ingest via Google Cloud Storage (GCS), spatial warehousing on BigQuery, and looker-style real-time GIS analytics.
-3. **Gemini 3.6 Flash**: Server-side LLM coordination providing real-time, context-aware tactical briefings and evacuation dispatch orders directed to the Chief of Disaster Operations.
-4. **Dijkstra Route Optimization**: Real-time safety-prioritized evacuation routing to the optimal haven shelter.
-5. **Python CUDA/NumPy Priority Engine**: Standalone high-performance Python script (`priority_engine.py`) for offline benchmarking and automated priority rankings.
+2. **Multi-Agent Orchestrator**: An autonomous multi-agent framework featuring **Orchestrator-Prime**, **HydroRisk-Agent**, **SpatialRoute-Agent**, **LogisticsDispatch-Agent**, and **HumanOversight-Agent** with strict **Human-in-the-Loop (HITL)** guardrails.
+3. **Google Cloud Platform (GCP)**: Scalable telemetry ingest via Google Cloud Storage (GCS), spatial warehousing on BigQuery, and real-time GIS analytics.
+4. **Gemini 3.6 Flash**: Server-side LLM coordination providing real-time, context-aware tactical briefings and evacuation dispatch orders using **Structured Outputs** (`responseSchema`).
+5. **Dijkstra Route Pathfinder**: Real-time safety-prioritized evacuation routing to the optimal haven shelter avoiding flooded basins.
+6. **Python CUDA/NumPy Priority Engine**: Standalone high-performance Python script (`priority_engine.py`) for offline benchmarking and automated priority rankings.
+
+---
+
+## ⚡ The 7-Step Accelerated Data Pipeline
+
+FLUDGE transforms raw, high-velocity hydrometeorological noise into sub-second tactical clarity through a 7-step pipeline:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                       THE 7-STEP ACCELERATED PIPELINE                      │
+└─────────────────────────────────────────────────────────────────────────────┘
+  1. High-Velocity Telemetry Ingest (30k RT Geometries & BMKG Radar Feeds)
+  2. Parallel Point-in-Polygon Catchment Matching (cuSpatial / cuDF)
+  3. Vectorized Inverse Distance Weighting (IDW) Spatial Rainfall Interpolation
+  4. Gumbel Extreme Value Theory (EVT / GEV) Exceedance Modeling
+  5. Composite Risk Fusion Scoring (Topography + Rainfall + Water Level)
+  6. Graph-Based Dijkstra Safe Evacuation Route Calculation
+  7. Multi-Agent Reasoning & Sub-Second Tactical Dispatch Output
+```
+
+1. **Telemetry Ingest**: Ingesting live water sensor gauges and BMKG radar feeds into BigQuery spatial tables.
+2. **Catchment Matching**: Point-in-Polygon spatial assignment linking 30,000 RT sectors to nearby river basins.
+3. **IDW Interpolation**: Vectorized spatial rainfall calculation assigning millimeter-per-hour precipitation estimates to every RT.
+4. **GEV Modeling**: Extreme Value Theory calculations evaluating statistical exceedance probability for floodgate overtopping.
+5. **Risk Fusion**: Weighted composite risk indexing incorporating DEMNAS elevation models and population vulnerability.
+6. **Dijkstra Routing**: Graph-based pathfinder computing safe evacuation corridors away from low-elevation basins to haven shelters.
+7. **Tactical Dispatch**: Automated streaming of Gemini AI command briefings, asset dispatch commands, and audit logs.
+
+---
+
+## 🤖 Multi-Agent Orchestrator System
+
+FLUDGE features an autonomous **Multi-Agent Command Center** where specialized AI agents collaborate to manage disaster responses with **Human-in-the-Loop (HITL)** guardrails:
+
+| Agent Name | Role | Core Responsibility & Tech |
+| :--- | :--- | :--- |
+| **Orchestrator-Prime** | Primary Coordinator | Task decomposition, workflow delegation, and multi-agent synthesis using NeMo Agent Framework & TensorRT LLM. |
+| **HydroRisk-Agent** | Hydrological Specialist | GEV probability distribution fitting and DEMNAS terrain analysis via CUDA-accelerated matrix math. |
+| **SpatialRoute-Agent** | Safe Corridor Specialist | Real-time graph searches for non-flooded evacuation routes powered by cuGRAPH & Dijkstra pathfinding. |
+| **LogisticsDispatch-Agent** | Resource Allocator | BPBD asset matching (rescue boats, mobile pump trucks, sirens) via NVIDIA Triton Inference Server. |
+| **HumanOversight-Agent** | HITL Guardrail Specialist | Enforces safety policy locks and requires explicit human operator confirmation before issuing dispatch orders. |
 
 ---
 
 ## 🚀 Key Features
 
-- **Interactive Vector Spatial Map**: Displays 30,000 Jakarta RT boundaries, elevation profiles (DEMNAS), river sensors, population density, and flood risk heatmaps.
-- **7-Step Accelerated Data Pipeline**: Complete end-to-end architecture visualization showing Ingestion, Point-in-Polygon, IDW Interpolation, GEV Extreme Value Theory modeling, Risk Fusion, Dijkstra Safe Routing, and Tactical Dispatch.
-- **Python Core Viewer & Engine**: Interactive CUDA-accelerated Python script preview and local execution script (`priority_engine.py`) for ranking 30,000 sectors in sub-seconds.
-- **Gemini 3.6 Flash Tactical Advisor**: Generates deterministic, action-oriented dispatch directives (Threat Levels, Route Warnings, Directives) via the modern `@google/genai` server-side SDK using **Structured Outputs** (`responseSchema`).
+- **Interactive Vector Spatial Map**: Custom high-performance canvas displaying 30,000 Jakarta RT boundaries, DEMNAS elevation profiles, river sensors, and flood risk heatmaps.
+- **7-Step Accelerated Pipeline Visualizer**: Interactive architectural diagram demonstrating sub-5ms GPU performance vs CPU baselines.
+- **Multi-Agent Orchestrator Center**: Real-time agent trace logs, thought processes, tool calls, and Human-in-the-Loop (HITL) approval gates.
+- **Python Core Viewer & Engine**: Integrated CUDA-accelerated Python script preview and local execution script (`priority_engine.py`) for ranking 30,000 sectors in sub-seconds.
+- **Gemini 3.6 Flash Tactical Advisor**: Generates deterministic, action-oriented dispatch directives (Threat Levels, Route Warnings, Directives) via `@google/genai` server-side SDK using **Structured Outputs**.
 - **Ground Truth & CCTV Monitor**: Real-time modal integrating live CCTV stream feeds and citizen field reports for physical ground verification.
-- **Comprehensive Evacuation Logging & Export Tool**: Automatically aggregates live evacuation dispatch orders, routing distance, muster points, risk scores, and meteorological data into formatted **PDF and CSV comprehensive reports** for post-event analysis.
+- **Comprehensive Evacuation Logging & Export Tool**: Automatically aggregates live evacuation dispatch orders, routing distance, muster points, risk scores, and meteorological data into formatted **PDF and CSV comprehensive reports**.
 - **Interactive Dijkstra Evacuation Router**: Renders path layouts, total distance, and route safety ratings on a vector-simulated canvas.
 - **Logistics & Asset Tracking**: Maps rescue boats, evacuation trucks, pump units, and medical caches in real time.
 - **NVIDIA RAPIDS Scale Stress Tester**: Interactive benchmarks matching CPU single-thread calculations against GPU parallel performance across **30,000 to 1,000,000 records**.
@@ -56,8 +99,9 @@ graph TD
         RAPIDS -->|Parallel Point-in-Polygon & Rainfall IDW| API[Express API Proxy / Server]
     end
 
-    subgraph Intelligence [4. Tactical Reasoning Layer]
-        API -->|Accelerated Risk Matrix & Context| Gemini[Gemini 3.6 Flash LLM]
+    subgraph Intelligence [4. Multi-Agent & AI Tactical Layer]
+        API -->|Accelerated Risk Matrix & Context| MultiAgent[Multi-Agent Orchestrator]
+        MultiAgent -->|Agent Collaboration & HITL| Gemini[Gemini 3.6 Flash LLM]
         Gemini -->|Actionable Dispatch Bulletins| API
     end
 
@@ -71,13 +115,14 @@ graph TD
     style Gemini fill:#4285f4,stroke:#3367d6,stroke-width:2px,color:#fff
     style HUD fill:#06b6d4,stroke:#0891b2,stroke-width:2px,color:#fff
     style BQ fill:#ff6d00,stroke:#e65100,stroke-width:2px,color:#fff
+    style MultiAgent fill:#9333ea,stroke:#7e22ce,stroke-width:2px,color:#fff
 ```
 
 1. **Ingest**: Raw river telemetry levels and BMKG radar readings land as high-velocity files in a Google Cloud Storage bucket (`gs://jakarta-disaster-telemetry/`).
 2. **Store**: BigQuery joins raw streams with static DKI Jakarta RT boundary coordinates and DEMNAS high-resolution elevation models.
-3. **Accelerate**: NVIDIA RAPIDS cuDF dataframes parallelize spatial interpolation on GPU kernels, bypassing the CPU single-thread bottleneck.
-4. **Decide**: The Express server-side controller queries Gemini 3.6 Flash with the accelerated spatial risk parameters to construct structured emergency briefings.
-5. **Command**: Command coordinators inspect looker HUD indicators, view ground truth CCTV feeds, and dispatch optimized route plans and pump units immediately.
+3. **Accelerate**: NVIDIA RAPIDS cuDF dataframes parallelize spatial interpolation on GPU kernels, bypassing CPU single-thread bottlenecks.
+4. **Orchestrate & Decide**: The Multi-Agent system collaborates with Gemini 3.6 Flash to analyze risk context and generate structured emergency briefings with HITL verification.
+5. **Command**: Command coordinators inspect HUD indicators, view ground truth CCTV feeds, approve agent actions, and dispatch optimized route plans and pump units immediately.
 
 ---
 
@@ -87,8 +132,9 @@ graph TD
 - **Backend**: Node.js, Express, TypeScript, `tsx`
 - **GPU Acceleration**: NVIDIA RAPIDS cuDF Engine emulation (v26.04) running on NVIDIA L4 Tensor Core GPU
 - **Python Engine**: Python 3, NumPy, SciPy, Pandas (`priority_engine.py`)
+- **Multi-Agent Framework**: Autonomous Agent Execution Engine with HITL Safety Approval Gates
 - **Database & Cloud**: Google Cloud Storage (GCS), BigQuery Core Schemas, Looker-Style Visualization
-- **Generative AI**: `@google/genai` TypeScript SDK (model: `gemini-3.6-flash`)
+- **Generative AI**: `@google/genai` TypeScript SDK (model: `gemini-3.6-flash` with `responseSchema`)
 
 ---
 
@@ -192,4 +238,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ---
 
-_Disaster coordination engineered for speed. Empowering BPBD DKI Jakarta with low-latency AI and parallelized spatial calculations._
+_Disaster coordination engineered for speed. Empowering BPBD DKI Jakarta with low-latency AI, multi-agent orchestration, and parallelized spatial calculations._
